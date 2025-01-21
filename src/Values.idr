@@ -21,6 +21,11 @@ data Env : Ctx -> Ctx -> Type where
   (:<) : Env ns ms -> VTm ns -> Env ns (ms :< m)
 
 public export
+(.size) : Env ns ms -> Size ms
+(.size) LinEnv = SZ
+(.size) (xs :< _) = SS (xs.size)
+
+public export
 record Closure (u : Name) (ns : Ctx) where
   constructor Cl
   {0 ks : Ctx}
@@ -53,6 +58,10 @@ public export
 liftEnv : Env ns ms -> Env (ns :< n) ms
 
 public export
+growEnv : (s : Size ns) -> Env ns ms -> Env (ns :< n) (ms :< m)
+growEnv s env = liftEnv env :< VVar (lastLvl s)
+
+public export
 (ms : Ctx) => Lift (\ns => Env ns ms) where
   lift = liftEnv
 
@@ -68,7 +77,7 @@ Lift VTm where
   lift (VLit l) = VLit l
 
 idEnv SZ = LinEnv
-idEnv (SS n) = liftEnv (idEnv n) :< VVar (idxToLvl (SS n) IZ)
+idEnv (SS n) = growEnv n (idEnv n)
 
 liftEnv LinEnv = LinEnv
 liftEnv (xs :< x) = liftEnv xs :< lift x

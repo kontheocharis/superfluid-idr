@@ -48,3 +48,7 @@ quote s (VLit l) = SLit l
 
 nf : Size ns -> STm ns -> STm ns
 nf s t = quote s (eval (idEnv s) t)
+
+public export
+sub : Env n m -> VTm m -> VTm n
+sub env t = eval env (quote (env.size) t)
