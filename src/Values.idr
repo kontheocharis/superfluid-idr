@@ -81,3 +81,6 @@ idEnv (SS n) = growEnv n (idEnv n)
 
 liftEnv LinEnv = LinEnv
 liftEnv (xs :< x) = liftEnv xs :< lift x
+
+public export
+chainEnv : Env ns ms -> Env ms ks -> Env ns ks

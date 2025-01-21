@@ -52,3 +52,7 @@ nf s t = quote s (eval (idEnv s) t)
 public export
 sub : Env n m -> VTm m -> VTm n
 sub env t = eval env (quote (env.size) t)
+
+public export
+closeVal : Env ns ks -> VTm (ks :< u) -> Closure u ns
+closeVal env t = Cl env (quote (SS env.size) t)
