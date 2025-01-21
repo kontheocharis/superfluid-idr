@@ -38,23 +38,32 @@ data Context where
 (.env) (Bind ctx _ _) = growEnv ctx.bindsSize ctx.env
 (.env) (Def ctx _ _ tm) = ctx.env :< tm
 
-data Typechecker : (m : Type -> Type) -> Mode -> Ctx -> Ctx -> Type where
+data Typechecker : (m : Type -> Type) -> (Tc m) => Mode -> Ctx -> Ctx -> Type where
   Checker : (Tc m) => (Context ns bs -> VTy bs -> m (STm ns)) -> Typechecker m Check ns bs
   Inferer : (Tc m) => (Context ns bs -> m (STm ns, VTy bs)) -> Typechecker m Infer ns bs
 
-lam : (n : Name) -> Typechecker m md (ns :< n) (bs :< n) -> Typechecker m md ns bs
+lam : (Tc m) => (n : Name) -> Typechecker m md (ns :< n) (bs :< n) -> Typechecker m md ns bs
 lam n (Checker f) = Checker $ \ctx => \ty => case ty of
-  VPi n' a b => SLam n <$> f (Bind ctx n a) (applyRen ctx.bindsSize b)
+  VPi n' a b => do
+    t <- f (Bind ctx n a) (applyRen ctx.bindsSize b)
+    pure (SLam n t)
   _ => tcError ExpectedPi
 lam n (Inferer f) = Inferer $ \ctx => do
   a <- freshMeta
   (t, b) <- f (Bind ctx n a)
   pure (SLam n t, VPi n a (closeVal (idEnv ctx.bindsSize) b))
 
-app : Typechecker m md ns bs -> Typechecker m md ns bs -> Typechecker m md ns bs
+app : (Tc m) => Typechecker m Infer ns bs -> Typechecker m Check ns bs -> Typechecker m Infer ns bs
+app (Inferer f) (Checker g) = Inferer $ \ctx => do
+  (f', a) <- f ctx
+  case a of
+    VPi n a b => do
+      g' <- g ctx a
+      pure (SApp f' g', b $$ eval ctx.env g')
+    _ => tcError ExpectedPi
 
-pi : (n : Name) -> Typechecker m md ns bs -> Typechecker m md (ns :< n) (bs :< n) -> Typechecker m md ns bs
+pi : (Tc m) => (n : Name) -> Typechecker m md ns bs -> Typechecker m md (ns :< n) (bs :< n) -> Typechecker m md ns bs
 
-lit : Lit -> Typechecker m md ns bs
+lit : (Tc m) => Lit -> Typechecker m md ns bs
 
 
