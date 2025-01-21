@@ -13,6 +13,7 @@ data PTm : Type where
   PApp : PTm -> PTm -> PTm
   PPi : Name -> PTy -> PTy -> PTy
   PLit : Lit -> PTm
+  PInfer : PTm
 
 Show PTm where
   show (PVar n) = n
@@ -20,3 +21,4 @@ Show PTm where
   show (PApp f x) = "(" ++ show f ++ " " ++ show x ++ ")"
   show (PPi n a b) = "(" ++ n ++ " : " ++ show a ++ ") -> " ++ show b
   show (PLit l) = show l
+  show PInfer = "_"
