@@ -1,0 +1,10 @@
+[custom.all.superfluid-idr]
+type = "local"
+path = "."
+ipkg = "superfluid-idr.ipkg"
+test = "test/test.ipkg"
+
+[custom.all.superfluid-idr-test]
+type = "local"
+path = "test"
+ipkg = "test.ipkg"
