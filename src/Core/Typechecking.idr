@@ -1,10 +1,10 @@
-module Typecheck
+module Core.Typechecking
 
 import Common
 import Context
-import Syntax
-import Values
-import Evaluation
+import Core.Syntax
+import Core.Values
+import Core.Evaluation
 
 data Mode = Check | Infer
 
@@ -16,7 +16,7 @@ data TcError = ExpectedPi
 interface (Monad m, Metas m) => Tc m where
   tcError : TcError -> m a
 
-data Context : Ctx -> Ctx -> Type
+data Context : Names -> Names -> Type
 
 data Context where
   Empty : Context Lin Lin
@@ -38,7 +38,7 @@ data Context where
 (.env) (Bind ctx _ _) = growEnv ctx.bindsSize ctx.env
 (.env) (Def ctx _ _ tm) = ctx.env :< tm
 
-data Typechecker : (m : Type -> Type) -> (Tc m) => Mode -> Ctx -> Ctx -> Type where
+data Typechecker : (m : Type -> Type) -> (Tc m) => Mode -> Names -> Names -> Type where
   Checker : (Tc m) => (Context ns bs -> VTy bs -> m (STm ns)) -> Typechecker m Check ns bs
   Inferer : (Tc m) => (Context ns bs -> m (STm ns, VTy bs)) -> Typechecker m Infer ns bs
 
@@ -65,5 +65,3 @@ app (Inferer f) (Checker g) = Inferer $ \ctx => do
 pi : (Tc m) => (n : Name) -> Typechecker m md ns bs -> Typechecker m md (ns :< n) (bs :< n) -> Typechecker m md ns bs
 
 lit : (Tc m) => Lit -> Typechecker m md ns bs
-
-

@@ -1,4 +1,4 @@
-module Presyntax
+module Sugar.Presyntax
 
 import Common
 
@@ -14,6 +14,7 @@ data PTm : Type where
   PPi : Name -> PTy -> PTy -> PTy
   PLit : Lit -> PTm
   PInfer : PTm
+  PU : PTm
 
 Show PTm where
   show (PVar n) = n
@@ -22,3 +23,4 @@ Show PTm where
   show (PPi n a b) = "(" ++ n ++ " : " ++ show a ++ ") -> " ++ show b
   show (PLit l) = show l
   show PInfer = "_"
+  show PU = "U"

@@ -5,26 +5,26 @@ import Data.SnocList
 import Data.Nat
 
 public export
-Ctx : Type
-Ctx = SnocList Name
+Names : Type
+Names = SnocList Name
 
 public export
-data Size : Ctx -> Type where
+data Size : Names -> Type where
   SZ : Size Lin
   SS : Size ns -> Size (ns :< n)
 
 public export
-data Idx : Ctx -> Type where
+data Idx : Names -> Type where
   IZ : Idx (ns :< n)
   IS : Idx ns -> Idx (ns :< n)
 
 public export
-data Lvl : Ctx -> Type where
+data Lvl : Names -> Type where
   LZ : Lvl (ns :< n)
   LS : Lvl ns -> Lvl (ns :< n)
 
 public export
-interface Lift (f : Ctx -> Type) where
+interface Lift (f : Names -> Type) where
   lift : f ns -> f (ns :< n)
 
 public export

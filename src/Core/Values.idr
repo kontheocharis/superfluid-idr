@@ -1,22 +1,22 @@
-module Values
+module Core.Values
 
 import Data.SnocList
 
 import Common
 import Context
-import Syntax
+import Core.Syntax
 
 public export
-0 VTy : Ctx -> Type
+0 VTy : Names -> Type
 
 public export
 0 Spine : Type -> Type
 
 public export
-data VTm : Ctx -> Type
+data VTm : Names -> Type
 
 public export
-data Env : Ctx -> Ctx -> Type where
+data Env : Names -> Names -> Type where
   LinEnv : Env n Lin
   (:<) : Env ns ms -> VTm ns -> Env ns (ms :< m)
 
@@ -26,9 +26,9 @@ public export
 (.size) (xs :< _) = SS (xs.size)
 
 public export
-record Closure (u : Name) (ns : Ctx) where
+record Closure (u : Name) (ns : Names) where
   constructor Cl
-  {0 ks : Ctx}
+  {0 ks : Names}
   env : Env ns ks
   tm : STm (ks :< u)
 
@@ -37,6 +37,7 @@ data VTm where
   VRigid : Lvl n -> Spine (VTm n) -> VTm n
   VPi : (n : Name) -> VTy ns -> Closure n ns -> VTm ns
   VLit : Lit -> VTm ns
+  VU : VTm ns
 
 VTy = VTm
 
@@ -62,7 +63,7 @@ growEnv : (s : Size ns) -> Env ns ms -> Env (ns :< n) (ms :< m)
 growEnv s env = liftEnv env :< VVar (lastLvl s)
 
 public export
-(ms : Ctx) => Lift (\ns => Env ns ms) where
+(ms : Names) => Lift (\ns => Env ns ms) where
   lift = liftEnv
 
 public export
@@ -75,6 +76,7 @@ Lift VTm where
   lift (VRigid i sp) = VRigid (lift i) (map lift sp)
   lift (VPi n a cl) = VPi n (lift a) (lift cl)
   lift (VLit l) = VLit l
+  lift VU = VU
 
 idEnv SZ = LinEnv
 idEnv (SS n) = growEnv n (idEnv n)

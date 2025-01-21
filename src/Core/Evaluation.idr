@@ -1,11 +1,11 @@
-module Evaluation
+module Core.Evaluation
 
 import Data.SnocList
 
 import Common
 import Context
-import Syntax
-import Values
+import Core.Syntax
+import Core.Values
 
 public export
 eval : Env n m -> STm m -> VTm n
@@ -27,14 +27,16 @@ applyRen s (Cl env t) = eval (liftEnv env :< VVar (lastLvl s)) t
 app : VTm n -> VTm n -> VTm n
 app (VLam _ cl) x = cl $$ x
 app (VRigid i sp) x = VRigid i (sp :< x)
-app (VPi _ a b) x = error "impossible"
-app (VLit _) _ = error "impossible"
+app (VPi _ a b) x = error "impossible to apply VPi"
+app (VLit _) _ = error "impossible to apply VLit"
+app VU _ = error "impossible to apply VU"
 
 eval env (SVar i) = lookup env i
 eval env (SLam n t) = VLam n (Cl env t)
 eval env (SApp f x) = app (eval env f) (eval env x)
 eval env (SPi n a b) = VPi n (eval env a) (Cl env b)
 eval env (SLit l) = VLit l
+eval env SU = VU
 
 appSpine : STm n -> Spine (STm n) -> STm n
 appSpine f Lin = f
@@ -45,6 +47,7 @@ quote s (VLam n (Cl env t)) = SLam n $ quote (SS s) (eval (liftEnv env :< VVar (
 quote s (VRigid l sp) = appSpine (SVar (lvlToIdx s l)) (map (quote s) sp)
 quote s (VPi n a (Cl env t)) = SPi n (quote s a) (quote (SS s) (eval (liftEnv env :< VVar (lastLvl s)) t))
 quote s (VLit l) = SLit l
+quote s VU = SU
 
 nf : Size ns -> STm ns -> STm ns
 nf s t = quote s (eval (idEnv s) t)
