@@ -3,6 +3,8 @@ module Core.Conversion
 import Data.DPair
 import Decidable.Equality
 import Data.SnocList.Elem
+import Data.Fin
+import Data.Nat
 
 import Common
 import Context
