@@ -1,25 +1,10 @@
-module Core.Inductive
+module Extension.Inductive
 
 import Data.SnocList
 
 import Common
 import Context
 import Core.Syntax
-
-data Tel : (Names -> Type) -> Names -> Names -> Type where
-  Lin : Tel f [<] ns
-  (:<) : (c : Tel f ps ns) -> (p : (Name, f (ns ++ ps))) -> Tel f (ps :< fst p) ns
-
-Con : (Names -> Type) -> Names -> Type
-Con f ps = Tel f ps [<]
-
-(++) : Tel f' ps' ns' -> Tel f' qs' (ns' ++ ps') -> Tel f' (ps' ++ qs') ns'
-(++) te [<] = te
-(++) te ((:<) {ps = ps} te' (n, t)) = (te ++ te') :< (n, rewrite appendAssociative ns' ps' ps in t)
-
-sPis : Tel STy ps ns -> STy (ns ++ ps) -> STy ns
-sPis [<] b = b
-sPis (as :< (n, a)) b = sPis as (SPi n a b)
 
 record Inductive (sort : Names -> Type) (is : Names) (ss : Names) (ns : Names) where
   constructor MkInductive

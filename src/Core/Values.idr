@@ -10,22 +10,17 @@ public export
 VTy : Names -> Type
 
 public export
-Spine : Type -> Type
-
-public export
-SpineVec : Type -> Nat -> Type
-
-public export
 data VTm : Names -> Type
 
-public export
-data Env : Names -> Names -> Type where
-  LinEnv : Env n Lin
-  (:<) : Env ns ms -> VTm ns -> Env ns (ms :< m)
+namespace Env
+  public export
+  data Env : Names -> Names -> Type where
+    Lin : Env n [<]
+    (:<) : Env ns ms -> VTm ns -> Env ns (ms :< m)
 
 public export
 (.size) : Env ns ms -> Size ms
-(.size) LinEnv = SZ
+(.size) [<] = SZ
 (.size) (xs :< _) = SS (xs.size)
 
 public export
@@ -37,17 +32,15 @@ record Closure (u : Name) (ns : Names) where
 
 data VTm where
   VLam : (n : Name) -> Closure n ns -> VTm ns
-  VRigid : Lvl n -> Spine (VTm n) -> VTm n
+  VRigid : Lvl ns -> Spine VTm ps ns -> VTm ns
   VPi : (n : Name) -> VTy ns -> Closure n ns -> VTm ns
   VU : VTm ns
 
 VTy = VTm
 
-Spine = SnocList
-
 public export
 VVar : Lvl n -> VTm n
-VVar l = VRigid l Lin
+VVar l = VRigid l [<]
 
 public export
 lookup : Env n m -> Idx m -> VTm n
@@ -59,6 +52,9 @@ idEnv : Size ns -> Env ns ns
 
 public export
 weakenEnv : Env ns ms -> Env (ns :< n) ms
+
+public export
+weakenSpine : Spine VTm ps ns -> Spine VTm ps (ns :< n)
 
 public export
 growEnv : (s : Size ns) -> Env ns ms -> Env (ns :< n) (ms :< m)
@@ -75,15 +71,18 @@ public export
 public export
 Weaken VTm where
   weaken (VLam n cl) = VLam n (weaken cl)
-  weaken (VRigid i sp) = VRigid (weaken i) (map weaken sp)
+  weaken (VRigid i sp) = VRigid (weaken i) (weakenSpine sp)
   weaken (VPi n a cl) = VPi n (weaken a) (weaken cl)
   weaken VU = VU
 
-idEnv SZ = LinEnv
+idEnv SZ = [<]
 idEnv (SS n) = growEnv n (idEnv n)
 
-weakenEnv LinEnv = LinEnv
+weakenEnv [<] = [<]
 weakenEnv (xs :< x) = weakenEnv xs :< weaken x
+
+weakenSpine [<] = [<]
+weakenSpine (xs :< x) = weakenSpine xs :< weaken x
 
 public export
 chainEnv : Env ns ms -> Env ms ks -> Env ns ks

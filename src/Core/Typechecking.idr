@@ -29,25 +29,25 @@ interface (Monad m) => Tc m where
 
 public export
 data Context where
-  Empty : Context Lin Lin
+  Lin : Context Lin Lin
   Bind : (ctx : Context ns bs) -> (n : Name) -> (t : VTy bs) -> Context (ns :< n) (bs :< n)
   Def : (ctx : Context ns bs) -> (n : Name) -> (t : VTy bs) -> (tm : VTm bs) -> Context (ns :< n) bs
 
 public export
 (.bindsSize) : Context ns bs -> Size bs
-(.bindsSize) Empty = SZ
+(.bindsSize) [<] = SZ
 (.bindsSize) (Bind s _ _) = SS s.bindsSize
 (.bindsSize) (Def s _ _ _) = s.bindsSize
 
 public export
 (.size) : Context ns bs -> Size ns
-(.size) Empty = SZ
+(.size) [<] = SZ
 (.size) (Bind s _ _) = SS s.size
 (.size) (Def s _ _ _) = SS s.size
 
 public export
 (.env) : Context ns bs -> Env bs ns
-(.env) Empty = LinEnv
+(.env) [<] = [<]
 (.env) (Bind ctx _ _) = growEnv ctx.bindsSize ctx.env
 (.env) (Def ctx _ _ tm) = ctx.env :< tm
 
@@ -64,7 +64,7 @@ lookup ctx IZ = thisTerm ctx
 
 public export
 lookupName : Context ns bs -> (n : Name) -> Maybe (Idx ns, VTerm bs, Elem n ns)
-lookupName Empty _ = Nothing
+lookupName [<] _ = Nothing
 lookupName ctx@(Bind ctx' n ty) m = case decEq n m of
   Yes p => Just (IZ, thisTerm ctx, rewrite p in Here)
   No q => map (\(i, t, e) => (IS i, weaken t, There e)) (lookupName ctx' m)
@@ -165,7 +165,7 @@ app f g = Inferer $ \ctx => do
   case a of
     VPi n a b => do
       g' <- check g ctx a
-      pure (SApp f' g', b $$ eval ctx.env g')
+      pure (SApp f' n g', b $$ eval ctx.env g')
     _ => tcError ExpectedPi
 
 public export
