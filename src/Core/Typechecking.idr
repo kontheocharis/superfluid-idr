@@ -72,6 +72,10 @@ lookupName ctx@(Def ctx' n ty tm) m = case decEq n m of
   Yes p => Just (IZ, thisTerm ctx, rewrite p in Here)
   No q => map (\(i, t, e) => (IS i, t, There e)) (lookupName ctx' m)
 
+data ModeInput : Mode -> Names -> Type where
+  CheckInput : VTy bs -> ModeInput Check bs
+  InferInput : ModeInput Infer bs
+
 public export
 data Typechecker : (m : Type -> Type) -> (Tc m) => Mode -> Names -> Names -> Type where
   Checker : (Tc m) => (Context ns bs -> VTy bs -> m (STm ns)) -> Typechecker m Check ns bs
@@ -98,6 +102,18 @@ infer : (Tc m) => Typechecker m Infer ns bs -> Context ns bs -> m (STm ns, VTy b
 infer (Inferer f) ctx = f ctx
 
 public export
+run : (Tc m) => Typechecker m md ns bs -> Context ns bs -> ModeInput md bs -> m (STm ns, VTy bs)
+run (Checker f) ctx (CheckInput ty) = f ctx ty >>= \t => pure (t, ty)
+run (Inferer f) ctx InferInput = f ctx
+
+public export
+mirror : (Tc m) => Typechecker m md ns bs -> (Context ns' bs' -> ModeInput md bs' -> m (STm ns', VTy bs')) -> Typechecker m md ns' bs'
+mirror (Checker _) k = Checker $ \ctx => \ty => do
+  (a, _) <- k ctx (CheckInput ty)
+  pure a
+mirror (Inferer _) k = Inferer $ \ctx => k ctx InferInput
+
+public export
 var : (Tc m) => Idx ns -> Typechecker m Infer ns bs
 var i = Inferer $ \ctx => case lookup ctx i of
     MkVTerm ty _ => pure (SVar i, ty)
@@ -118,16 +134,34 @@ lam n f = Checker $ \ctx => \ty => case ty of
 
 public export
 typedLam : (Tc m) => (n : Name) -> Typechecker m md ns bs -> Typechecker m Infer (ns :< n) (bs :< n) -> Typechecker m Infer ns bs
-typedLam n a (Inferer f) = Inferer $ \ctx => do
+typedLam n a f = Inferer $ \ctx => do
     a' <- check a ctx VU
     let va = eval ctx.env a'
-    (t, b) <- f (Bind ctx n va)
+    (t, b) <- infer f (Bind ctx n va)
     pure (SLam n t, VPi n va (closeVal (idEnv ctx.bindsSize) b))
 
 public export
+letIn : (Tc m) => (n : Name) -> Typechecker m Infer ns bs -> Typechecker m md (ns :< n) bs -> Typechecker m md ns bs
+letIn n a b = mirror b $ \ctx => \ret => do
+  (a', ty) <- infer a ctx
+  let va = eval ctx.env a'
+  (b', ret') <- run b (Def ctx n ty va) ret
+  pure (SLet n a' b', ret')
+
+public export
+typedLetIn : (Tc m) => (n : Name) -> Typechecker m Check ns bs -> Typechecker m Check ns bs -> Typechecker m md (ns :< n) bs -> Typechecker m md ns bs
+typedLetIn n ty a b = mirror b $ \ctx => \ret => do
+  ty' <- check ty ctx VU
+  let vty = eval ctx.env ty'
+  a' <- check a ctx vty
+  let va = eval ctx.env a'
+  (b', ret') <- run b (Def ctx n vty va) ret
+  pure (SLet n a' b', ret')
+
+public export
 app : (Tc m) => Typechecker m Infer ns bs -> Typechecker m md ns bs -> Typechecker m Infer ns bs
-app (Inferer f) g = Inferer $ \ctx => do
-  (f', a) <- f ctx
+app f g = Inferer $ \ctx => do
+  (f', a) <- infer f ctx
   case a of
     VPi n a b => do
       g' <- check g ctx a

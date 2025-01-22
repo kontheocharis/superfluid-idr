@@ -35,6 +35,7 @@ eval env (SVar i) = lookup env i
 eval env (SLam n t) = VLam n (Cl env t)
 eval env (SApp f x) = app (eval env f) (eval env x)
 eval env (SPi n a b) = VPi n (eval env a) (Cl env b)
+eval env (SLet n a b) = eval (env :< eval env a) b
 eval env SU = VU
 
 appSpine : STm n -> Spine (STm n) -> STm n

@@ -13,6 +13,7 @@ data STm : Names -> Type where
   SApp : STm ns -> STm ns -> STm ns
   SPi : (n : Name) -> STy ns -> STy (ns :< n) -> STm ns
   SU : STm ns
+  SLet : (n : Name) -> STm ns -> STm (ns :< n) -> STm ns
 
 STy = STm
 
