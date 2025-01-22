@@ -7,10 +7,13 @@ import Context
 import Core.Syntax
 
 public export
-0 VTy : Names -> Type
+VTy : Names -> Type
 
 public export
-0 Spine : Type -> Type
+Spine : Type -> Type
+
+public export
+SpineVec : Type -> Nat -> Type
 
 public export
 data VTm : Names -> Type
@@ -36,7 +39,6 @@ data VTm where
   VLam : (n : Name) -> Closure n ns -> VTm ns
   VRigid : Lvl n -> Spine (VTm n) -> VTm n
   VPi : (n : Name) -> VTy ns -> Closure n ns -> VTm ns
-  VLit : Lit -> VTm ns
   VU : VTm ns
 
 VTy = VTm
@@ -56,33 +58,42 @@ public export
 idEnv : Size ns -> Env ns ns
 
 public export
-liftEnv : Env ns ms -> Env (ns :< n) ms
+weakenEnv : Env ns ms -> Env (ns :< n) ms
 
 public export
 growEnv : (s : Size ns) -> Env ns ms -> Env (ns :< n) (ms :< m)
-growEnv s env = liftEnv env :< VVar (lastLvl s)
+growEnv s env = weakenEnv env :< VVar (lastLvl s)
 
 public export
-(ms : Names) => Lift (\ns => Env ns ms) where
-  lift = liftEnv
+(ms : Names) => Weaken (\ns => Env ns ms) where
+  weaken = weakenEnv
 
 public export
-(n : Name) => Lift (Closure n) where
-  lift (Cl env t) = Cl (liftEnv env) t
+(n : Name) => Weaken (Closure n) where
+  weaken (Cl env t) = Cl (weakenEnv env) t
 
 public export
-Lift VTm where
-  lift (VLam n cl) = VLam n (lift cl)
-  lift (VRigid i sp) = VRigid (lift i) (map lift sp)
-  lift (VPi n a cl) = VPi n (lift a) (lift cl)
-  lift (VLit l) = VLit l
-  lift VU = VU
+Weaken VTm where
+  weaken (VLam n cl) = VLam n (weaken cl)
+  weaken (VRigid i sp) = VRigid (weaken i) (map weaken sp)
+  weaken (VPi n a cl) = VPi n (weaken a) (weaken cl)
+  weaken VU = VU
 
 idEnv SZ = LinEnv
 idEnv (SS n) = growEnv n (idEnv n)
 
-liftEnv LinEnv = LinEnv
-liftEnv (xs :< x) = liftEnv xs :< lift x
+weakenEnv LinEnv = LinEnv
+weakenEnv (xs :< x) = weakenEnv xs :< weaken x
 
 public export
 chainEnv : Env ns ms -> Env ms ks -> Env ns ks
+
+public export
+record VTerm (ns : Names) where
+  constructor MkVTerm
+  ty : VTy ns
+  tm : VTm ns
+
+public export
+Weaken VTerm where
+  weaken (MkVTerm tm ty) = MkVTerm (weaken tm) (weaken ty)

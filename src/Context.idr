@@ -24,18 +24,30 @@ data Lvl : Names -> Type where
   LS : Lvl ns -> Lvl (ns :< n)
 
 public export
-interface Lift (f : Names -> Type) where
-  lift : f ns -> f (ns :< n)
+Eq (Idx ns) where
+  (==) IZ IZ = True
+  (==) (IS i) (IS j) = i == j
+  (==) _ _ = False
 
 public export
-Lift Lvl where
-  lift LZ = LZ
-  lift (LS i) = LS (lift i)
+Eq (Lvl ns) where
+  (==) LZ LZ = True
+  (==) (LS i) (LS j) = i == j
+  (==) _ _ = False
 
 public export
-Lift Idx where
-  lift IZ = IZ
-  lift (IS i) = IS (lift i)
+interface Weaken (f : Names -> Type) where
+  weaken : f ns -> f (ns :< n)
+
+public export
+Weaken Lvl where
+  weaken LZ = LZ
+  weaken (LS i) = LS (weaken i)
+
+public export
+Weaken Idx where
+  weaken IZ = IZ
+  weaken (IS i) = IS (weaken i)
 
 public export
 firstIdx : Size ns -> Idx (ns :< n)
@@ -45,7 +57,7 @@ firstIdx (SS n) = IS (firstIdx n)
 public export
 lvlToIdx : Size ns -> Lvl ns -> Idx ns
 lvlToIdx (SS n) LZ = firstIdx n
-lvlToIdx (SS n) (LS l) = lift $ lvlToIdx n l
+lvlToIdx (SS n) (LS l) = weaken $ lvlToIdx n l
 
 public export
 lastLvl : Size ns -> Lvl (ns :< n)
@@ -55,4 +67,4 @@ lastLvl (SS n) = LS (lastLvl n)
 public export
 idxToLvl : Size ns -> Idx ns -> Lvl ns
 idxToLvl (SS n) IZ = lastLvl n
-idxToLvl (SS n) (IS i) = lift $ idxToLvl n i
+idxToLvl (SS n) (IS i) = weaken $ idxToLvl n i

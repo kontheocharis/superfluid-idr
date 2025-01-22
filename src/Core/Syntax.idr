@@ -12,7 +12,6 @@ data STm : Names -> Type where
   SLam : (n : Name) -> STm (ns :< n) -> STm ns
   SApp : STm ns -> STm ns -> STm ns
   SPi : (n : Name) -> STy ns -> STy (ns :< n) -> STm ns
-  SLit : Lit -> STm ns
   SU : STm ns
 
 STy = STm
