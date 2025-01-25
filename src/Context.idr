@@ -5,21 +5,17 @@ import Data.SnocList
 import Data.Nat
 
 public export
-Names : Type
-Names = SnocList Name
-
-public export
-data Size : Names -> Type where
+data Size : Named Type where
   SZ : Size Lin
   SS : Size ns -> Size (ns :< n)
 
 public export
-data Idx : Names -> Type where
+data Idx : Named Type where
   IZ : Idx (ns :< n)
   IS : Idx ns -> Idx (ns :< n)
 
 public export
-data Lvl : Names -> Type where
+data Lvl : Named Type where
   LZ : Lvl (ns :< n)
   LS : Lvl ns -> Lvl (ns :< n)
 
@@ -36,7 +32,7 @@ Eq (Lvl ns) where
   (==) _ _ = False
 
 public export
-interface Weaken (f : Names -> Type) where
+interface Weaken (f : Named Type) where
   weaken : f ns -> f (ns :< n)
 
 public export

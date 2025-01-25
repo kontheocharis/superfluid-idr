@@ -5,33 +5,41 @@ import Context
 import Data.SnocList
 
 public export
-0 STy : Names -> Type
+data Sig : GlobNamed Type
 
 public export
-data STm : Names -> Type where
-  SVar : Idx n -> STm n
-  SLam : (n : Name) -> STm (ns :< n) -> STm ns
-  SApp : STm ns -> (0 n : Name) -> STm ns -> STm ns
-  SPi : (n : Name) -> STy ns -> STy (ns :< n) -> STm ns
-  SU : STm ns
-  SLet : (n : Name) -> STm ns -> STm (ns :< n) -> STm ns
+0 STy : GlobNamed (Named Type)
+
+public export
+data STm : GlobNamed (Named Type)
+
+public export
+data SigItem : (0 _ : GlobName) -> (0 _ : Sig gs) -> Type
+
+data STm where
+  SVar : Idx ns -> STm gs ns
+  SLam : (n : Name) -> STm gs (ns :< n) -> STm gs ns
+  SApp : STm gs ns -> (0 n : Name) -> STm gs ns -> STm gs ns
+  SPi : (n : Name) -> STy gs ns -> STy gs (ns :< n) -> STm gs ns
+  SU : STm gs ns
+  SLet : (n : Name) -> STm gs ns -> STm gs (ns :< n) -> STm gs ns
 
 STy = STm
 
 namespace Tel
   public export
-  data Tel : (Names -> Type) -> Names -> Names -> Type where
+  data Tel : (Named Type) -> Named (Named Type) where
     Lin : Tel f [<] ns
     (:<) : (c : Tel f ps ns) -> (p : (Name, f (ns ++ ps))) -> Tel f (ps :< fst p) ns
 
 namespace Spine
   public export
-  data Spine : (Names -> Type) -> Names -> Names -> Type where
+  data Spine : (Named Type) -> Named (Named Type) where
     Lin : Spine f [<] ns
     (:<) : (c : Spine f ps ns) -> f ns -> Spine f (ps :< n) ns
 
 public export
-Con : (Names -> Type) -> Names -> Type
+Con : (Named Type) -> Named Type
 Con f ps = Tel f ps [<]
 
 public export
@@ -40,6 +48,13 @@ public export
 (++) te ((:<) {ps = ps} te' (n, t)) = (te ++ te') :< (n, rewrite appendAssociative ns' ps' ps in t)
 
 public export
-sPis : Tel STy ps ns -> STy (ns ++ ps) -> STy ns
+sPis : Tel (STy gs) ps ns -> STy gs (ns ++ ps) -> STy gs ns
 sPis [<] b = b
 sPis (as :< (n, a)) b = sPis as (SPi n a b)
+
+data Sig where
+  Lin : Sig [<]
+  (:<) : (si : Sig gs) -> SigItem g si -> Sig (gs :< g)
+
+-- data SigItem where
+--   DefItem : {0 si : Sig gs} -> (g : GlobName) -> () -> STy [<] -> STm [<] -> SigItem g si

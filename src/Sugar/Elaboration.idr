@@ -12,9 +12,9 @@ data ElabError : Type where
   CannotInferLam : ElabError
 
 interface (Tc m) => Elab m where
-  errorElab : {md : Mode} -> ElabError -> Typechecker m md ns bs
+  errorElab : {md : Mode} -> ElabError -> Typechecker m md gs ns bs
 
-elab : (Elab m) => (md : Mode) -> PTm -> Typechecker m md ns bs
+elab : (Elab m) => (md : Mode) -> PTm -> Typechecker m md gs ns bs
 elab Check (PLam n Nothing t) = lam n (elab Check t)
 elab md (PLet n Nothing a b) = letIn n (elab Infer a) (elab md b)
 elab md (PLet n (Just ty) a b) = typedLetIn n (elab Check ty) (elab Check a) (elab md b)

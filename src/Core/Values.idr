@@ -7,92 +7,92 @@ import Context
 import Core.Syntax
 
 public export
-VTy : Names -> Type
+VTy : GlobNamed (Named Type)
 
 public export
-data VTm : Names -> Type
+data VTm : GlobNamed (Named Type)
 
 namespace Env
   public export
-  data Env : Names -> Names -> Type where
-    Lin : Env n [<]
-    (:<) : Env ns ms -> VTm ns -> Env ns (ms :< m)
+  data Env : GlobNamed (Named (Named Type)) where
+    Lin : Env gs n [<]
+    (:<) : Env gs ns ms -> VTm gs ns -> Env gs ns (ms :< m)
 
 public export
-(.size) : Env ns ms -> Size ms
+(.size) : Env gs ns ms -> Size ms
 (.size) [<] = SZ
 (.size) (xs :< _) = SS (xs.size)
 
 public export
-record Closure (u : Name) (ns : Names) where
+record Closure (0 gs : GlobNames) (0 u : Name) (0 ns : Names) where
   constructor Cl
   {0 ks : Names}
-  env : Env ns ks
-  tm : STm (ks :< u)
+  env : Env gs ns ks
+  tm : STm gs (ks :< u)
 
 data VTm where
-  VLam : (n : Name) -> Closure n ns -> VTm ns
-  VRigid : Lvl ns -> Spine VTm ps ns -> VTm ns
-  VPi : (n : Name) -> VTy ns -> Closure n ns -> VTm ns
-  VU : VTm ns
+  VLam : (n : Name) -> Closure gs n ns -> VTm gs ns
+  VRigid : Lvl ns -> Spine (VTm gs) ps ns -> VTm gs ns
+  VPi : (n : Name) -> VTy gs ns -> Closure gs n ns -> VTm gs ns
+  VU : VTm gs ns
 
 VTy = VTm
 
 public export
-VVar : Lvl n -> VTm n
+VVar : Lvl ns -> VTm gs ns
 VVar l = VRigid l [<]
 
 public export
-lookup : Env n m -> Idx m -> VTm n
+lookup : Env gs ns ms -> Idx ms -> VTm gs ns
 lookup (xs :< x) IZ = x
 lookup (xs :< x) (IS i) = lookup xs i
 
 public export
-idEnv : Size ns -> Env ns ns
+idEnv : {auto s : Size ns} -> Env gs ns ns
 
 public export
-weakenEnv : Env ns ms -> Env (ns :< n) ms
+weakenEnv : Env gs ns ms -> Env gs (ns :< n) ms
 
 public export
-weakenSpine : Spine VTm ps ns -> Spine VTm ps (ns :< n)
+weakenSpine : Spine (VTm gs) ps ns -> Spine (VTm gs) ps (ns :< n)
 
 public export
-growEnv : (s : Size ns) -> Env ns ms -> Env (ns :< n) (ms :< m)
+growEnv : (s : Size ns) -> Env gs ns ms -> Env gs (ns :< n) (ms :< m)
 growEnv s env = weakenEnv env :< VVar (lastLvl s)
 
 public export
-(ms : Names) => Weaken (\ns => Env ns ms) where
+Weaken (\ns => Env gs ns ms) where
   weaken = weakenEnv
 
 public export
-(n : Name) => Weaken (Closure n) where
+Weaken (Closure gs n) where
   weaken (Cl env t) = Cl (weakenEnv env) t
 
 public export
-Weaken VTm where
+Weaken (VTm gs) where
   weaken (VLam n cl) = VLam n (weaken cl)
   weaken (VRigid i sp) = VRigid (weaken i) (weakenSpine sp)
   weaken (VPi n a cl) = VPi n (weaken a) (weaken cl)
   weaken VU = VU
 
-idEnv SZ = [<]
-idEnv (SS n) = growEnv n (idEnv n)
+idEnv {s = SZ} = [<]
+idEnv {s = (SS n)} = growEnv n (idEnv {s = n})
 
 weakenEnv [<] = [<]
-weakenEnv (xs :< x) = weakenEnv xs :< weaken x
+weakenEnv (xs :< x) = weakenEnv xs :< ?h1
 
 weakenSpine [<] = [<]
-weakenSpine (xs :< x) = weakenSpine xs :< weaken x
+weakenSpine (xs :< x) = weakenSpine xs :< ?h2
 
 public export
-chainEnv : Env ns ms -> Env ms ks -> Env ns ks
+chainEnv : Env gs ns ms -> Env gs ms ks -> Env gs ns ks
 
 public export
-record VTerm (ns : Names) where
+record VTerm (0 gs : GlobNames) (0 bs : Names) where
   constructor MkVTerm
-  ty : VTy ns
-  tm : VTm ns
+  ty : VTy gs bs
+  tm : VTm gs bs
 
 public export
-Weaken VTerm where
-  weaken (MkVTerm tm ty) = MkVTerm (weaken tm) (weaken ty)
+Weaken (VTerm gs) where
+  weaken v = MkVTerm (weaken v.ty) (weaken v.tm)

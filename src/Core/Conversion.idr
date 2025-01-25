@@ -13,10 +13,10 @@ import Core.Values
 import Core.Evaluation
 
 public export
-convert : (s : Size bs) -> VTm bs -> VTm bs -> Bool
+convert : (s : Size bs) -> VTm gs bs -> VTm gs bs -> Bool
 
 public export
-convertSpine : (s : Size bs) -> (xs : Spine VTm ps bs) -> (ys : Spine VTm ps' bs) -> Bool
+convertSpine : (s : Size bs) -> (xs : Spine (VTm gs) ps bs) -> (ys : Spine (VTm gs) ps' bs) -> Bool
 convertSpine s [<] [<] = True
 convertSpine s (sp :< t) (sp' :< t') = convertSpine s sp sp' && convert s t t'
 convertSpine s _ _ = False
