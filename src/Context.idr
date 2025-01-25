@@ -4,6 +4,99 @@ import Common
 import Data.SnocList
 import Data.Nat
 
+import Decidable.Equality
+import Control.Function
+import Data.DPair
+import Data.SnocList.Elem
+
+public export
+record Name where
+  constructor MkName
+  name : String
+
+public export
+Injective MkName where
+  injective Refl = Refl
+
+public export
+DecEq Name where
+  decEq (MkName n) (MkName n') = decEqCong $ decEq n n'
+
+public export
+0 Names : Type
+Names = SnocList Name
+
+public export
+0 Named : Type -> Type
+Named t = (0 _ : Names) -> t
+
+public export
+data Size : Named Type where
+  SZ : Size Lin
+  SS : Size ns -> Size (ns :< n)
+
+public export
+data GlobKind : Type where
+  CtorGlob : GlobKind
+  DataGlob : GlobKind
+  DefGlob : GlobKind
+  PrimGlob : GlobKind
+
+public export
+record GlobName (0 ps : Names) where
+  constructor MkGlobName
+  name : String
+  kind : GlobKind
+
+-- public export
+-- Injective CtorGlob where
+--   injective Refl = Refl
+
+-- public export
+-- Injective DataGlob where
+--   injective Refl = Refl
+
+-- public export
+-- Injective DefGlob where
+--   injective Refl = Refl
+
+public export
+DecEq (GlobName ps) where
+  decEq a b = ?holeGlobNameDecEq
+  -- decEq (DataGlob n) (DataGlob n') = decEqCong $ decEq n n'
+  -- decEq (DefGlob n) (DefGlob n') = decEqCong $ decEq n n'
+  -- decEq (CtorGlob _) (DataGlob _) = No (\p => case p of {
+  --   Refl impossible
+  -- })
+  -- decEq (CtorGlob _) (DefGlob _) = No (\p => case p of {
+  --   Refl impossible
+  -- })
+  -- decEq (DataGlob _) (CtorGlob _) = No (\p => case p of {
+  --   Refl impossible
+  -- })
+  -- decEq (DataGlob _) (DefGlob _) = No (\p => case p of {
+  --   Refl impossible
+  -- })
+  -- decEq (DefGlob _) (CtorGlob _) = No (\p => case p of {
+  --   Refl impossible
+  -- })
+  -- decEq (DefGlob _) (DataGlob _) = No (\p => case p of {
+  --   Refl impossible
+  -- })
+
+
+public export
+0 GlobNames : Type
+GlobNames = SnocList (DPair Names (\ps => GlobName ps))
+
+public export
+0 GlobNamed : Type -> Type
+GlobNamed t = (0 _ : GlobNames) -> t
+
+public export
+0 GlobNameIn : (0 _ : GlobNames) -> (0 _ : Names) -> Type
+GlobNameIn gs ps = Subset (GlobName ps) (\g => Elem (ps ** g) gs)
+
 public export
 data Idx : Named Type where
   IZ : Idx (ns :< n)

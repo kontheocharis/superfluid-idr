@@ -10,6 +10,7 @@ import Core.Syntax
 import Core.Values
 import Core.Evaluation
 import Core.Conversion
+import Core.Definitions
 
 public export
 data Mode = Check | Infer
@@ -23,71 +24,6 @@ data TcError : Type where
 public export
 interface (Monad m) => Tc m where
   tcError : TcError -> m a
-
-public export
-data LocalContext : GlobNamed (Named (Named Type)) where
-  Lin : LocalContext gs Lin Lin
-  Bind : (ctx : LocalContext gs ns bs) -> (n : Name) -> (t : VTy gs bs) -> LocalContext gs (ns :< n) (bs :< n)
-  Def : (ctx : LocalContext gs ns bs) -> (n : Name) -> (t : VTy gs bs) -> (tm : VTm gs bs) -> LocalContext gs (ns :< n) bs
-
-namespace GlobalContext
-  public export
-  data GlobalContext : GlobNamed Type where
-    Lin : GlobalContext Lin
-    GlobDef : (ctx : GlobalContext gs)
-      -> (n : String)
-      -> (pr : Tel (VTy gs) ps [<])
-      -> (ty : VTy gs ps)
-      -> (tm : VTm (gs :< Evidence ps (DefGlob n)) ps)
-      -> GlobalContext (gs :< Evidence ps (DefGlob n))
-
-public export
-record Context (0 gs : GlobNames) (0 ns : Names) (0 bs : Names) where
-  constructor MkContext
-  global : GlobalContext gs
-  local : LocalContext gs ns bs
-
-mapLocal : (LocalContext gs ns bs -> LocalContext gs ns' bs') -> Context gs ns bs -> Context gs ns' bs'
-mapLocal f c = MkContext c.global (f c.local)
-
-public export
-(.bindsSize) : LocalContext gs ns bs -> Size bs
-(.bindsSize) [<] = SZ
-(.bindsSize) (Bind s _ _) = SS s.bindsSize
-(.bindsSize) (Def s _ _ _) = s.bindsSize
-
-public export
-(.size) : LocalContext gs ns bs -> Size ns
-(.size) [<] = SZ
-(.size) (Bind s _ _) = SS s.size
-(.size) (Def s _ _ _) = SS s.size
-
-public export
-(.env) : LocalContext gs ns bs -> Env gs bs ns
-(.env) [<] = [<]
-(.env) (Bind ctx _ _) = growEnv ctx.bindsSize ctx.env
-(.env) (Def ctx _ _ tm) = ctx.env :< tm
-
-public export
-thisTerm : LocalContext gs (ns :< n) bs -> VTerm gs bs
-thisTerm (Bind ctx _ ty) = MkVTerm (weaken ty) (VVar (lastLvl ctx.bindsSize))
-thisTerm (Def ctx _ ty tm) = MkVTerm ty tm
-
-public export
-lookup : LocalContext gs ns bs -> Idx ns -> VTerm gs bs
-lookup (Bind ctx _ _) (IS i) = weaken (lookup ctx i)
-lookup (Def ctx _ _ _) (IS i) = lookup ctx i
-lookup ctx IZ = thisTerm ctx
-
-public export
-lookupName : LocalContext gs ns bs -> (n : Name) -> Maybe (Idx ns, VTerm gs bs, Elem n ns)
-lookupName [<] _ = Nothing
-lookupName ctx@(Bind ctx' n ty) m = case decEq n m of
-  Yes p => Just (IZ, thisTerm ctx, rewrite p in Here)
-  No q => map (\(i, t, e) => (IS i, weaken t, There e)) (lookupName ctx' m)
-lookupName ctx@(Def ctx' n ty tm) m = case decEq n m of
-  Yes p => Just (IZ, thisTerm ctx, rewrite p in Here)
-  No q => map (\(i, t, e) => (IS i, t, There e)) (lookupName ctx' m)
 
 data ModeInput : (0 _ : Mode) -> GlobNamed (Named Type) where
   CheckInput : VTy gs bs -> ModeInput Check gs bs
