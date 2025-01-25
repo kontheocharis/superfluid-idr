@@ -34,7 +34,12 @@ namespace GlobalContext
   public export
   data GlobalContext : GlobNamed Type where
     Lin : GlobalContext Lin
-    GlobDef : (ctx : GlobalContext gs) -> (n : GlobName) -> (t : VTy gs [<]) -> (tm : VTm (gs :< n) [<]) -> GlobalContext (gs :< n)
+    GlobDef : (ctx : GlobalContext gs)
+      -> (n : String)
+      -> (pr : Tel (VTy gs) ps [<])
+      -> (ty : VTy gs ps)
+      -> (tm : VTm (gs :< Evidence ps (DefGlob n)) ps)
+      -> GlobalContext (gs :< Evidence ps (DefGlob n))
 
 public export
 record Context (0 gs : GlobNames) (0 ns : Names) (0 bs : Names) where

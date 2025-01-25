@@ -3,9 +3,7 @@ module Core.Syntax
 import Common
 import Context
 import Data.SnocList
-
-public export
-data Sig : GlobNamed Type
+import Data.DPair
 
 public export
 0 STy : GlobNamed (Named Type)
@@ -13,8 +11,9 @@ public export
 public export
 data STm : GlobNamed (Named Type)
 
-public export
-data SigItem : (0 _ : GlobName) -> (0 _ : Sig gs) -> Type
+namespace Spine
+  public export
+  data Spine : (Named Type) -> Named (Named Type) where
 
 data STm where
   SVar : Idx ns -> STm gs ns
@@ -23,6 +22,7 @@ data STm where
   SPi : (n : Name) -> STy gs ns -> STy gs (ns :< n) -> STm gs ns
   SU : STm gs ns
   SLet : (n : Name) -> STm gs ns -> STm gs (ns :< n) -> STm gs ns
+  SGlob : (n : GlobNameIn gs ps) -> Spine (STm gs) ps ns -> STm gs ns
 
 STy = STm
 
@@ -33,8 +33,7 @@ namespace Tel
     (:<) : (c : Tel f ps ns) -> (p : (Name, f (ns ++ ps))) -> Tel f (ps :< fst p) ns
 
 namespace Spine
-  public export
-  data Spine : (Named Type) -> Named (Named Type) where
+  data Spine where
     Lin : Spine f [<] ns
     (:<) : (c : Spine f ps ns) -> f ns -> Spine f (ps :< n) ns
 
@@ -52,9 +51,12 @@ sPis : Tel (STy gs) ps ns -> STy gs (ns ++ ps) -> STy gs ns
 sPis [<] b = b
 sPis (as :< (n, a)) b = sPis as (SPi n a b)
 
-data Sig where
-  Lin : Sig [<]
-  (:<) : (si : Sig gs) -> SigItem g si -> Sig (gs :< g)
+-- public export
+-- data Sig : GlobNamed Type
 
--- data SigItem where
---   DefItem : {0 si : Sig gs} -> (g : GlobName) -> () -> STy [<] -> STm [<] -> SigItem g si
+-- public export
+-- data SigItem : (0 _ : GlobName) -> (0 _ : Sig gs) -> Type
+
+-- data Sig where
+--   Lin : Sig [<]
+--   (:<) : (si : Sig gs) -> SigItem g si -> Sig (gs :< g)

@@ -1,6 +1,7 @@
 module Core.Values
 
 import Data.SnocList
+import Data.DPair
 
 import Common
 import Context
@@ -35,6 +36,7 @@ data VTm where
   VRigid : Lvl ns -> Spine (VTm gs) ps ns -> VTm gs ns
   VPi : (n : Name) -> VTy gs ns -> Closure gs n ns -> VTm gs ns
   VU : VTm gs ns
+  VGlob : (n : GlobNameIn gs ps) -> Spine (VTm gs) ps ns -> VTm gs ns
 
 VTy = VTm
 
@@ -74,6 +76,7 @@ Weaken (VTm gs) where
   weaken (VRigid i sp) = VRigid (weaken i) (weakenSpine sp)
   weaken (VPi n a cl) = VPi n (weaken a) (weaken cl)
   weaken VU = VU
+  weaken (VGlob n sp) = VGlob n (weakenSpine sp)
 
 idEnv {s = SZ} = [<]
 idEnv {s = (SS n)} = growEnv n (idEnv {s = n})

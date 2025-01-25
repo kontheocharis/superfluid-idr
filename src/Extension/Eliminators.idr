@@ -11,22 +11,22 @@ IsCtor : Idx ns -> Names -> Type
 data Ctor : Names -> Names -> Type where
   MkCtor : (i : Idx ns) -> IsCtor i ps -> Ctor ps ns
 
-data Pat : Names -> Type where
-  PatVar : Idx ns -> Pat ns
-  PatCtor : Ctor ps ns -> Spine Pat ps ns -> Pat ns
+-- data Pat : Names -> Type where
+--   PatVar : Idx ns -> Pat ns
+--   PatCtor : Ctor ps ns -> Spine Pat ps ns -> Pat ns
 
-data CoPat : Names -> Type where
-  CoPatVar : Idx ns -> CoPat ns
+-- data CoPat : Names -> Type where
+--   CoPatVar : Idx ns -> CoPat ns
 
-record Constraint (ns : Names) where
-  constructor MkConstraint
-  term : STm ns
-  pat : Pat ns
-  ty : VTy ns
+-- record Constraint (ns : Names) where
+--   constructor MkConstraint
+--   term : STm ns
+--   pat : Pat ns
+--   ty : VTy ns
 
-record PartialClause (ns : Names) where
-  constructor MkPartialClause
-  constraints : List (Constraint ns)
-  copats : List (CoPat ns)
-  rhs : STm ns
+-- record PartialClause (ns : Names) where
+--   constructor MkPartialClause
+--   constraints : List (Constraint ns)
+--   copats : List (CoPat ns)
+--   rhs : STm ns
 

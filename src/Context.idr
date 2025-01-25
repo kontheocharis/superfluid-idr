@@ -5,11 +5,6 @@ import Data.SnocList
 import Data.Nat
 
 public export
-data Size : Named Type where
-  SZ : Size Lin
-  SS : Size ns -> Size (ns :< n)
-
-public export
 data Idx : Named Type where
   IZ : Idx (ns :< n)
   IS : Idx ns -> Idx (ns :< n)
@@ -44,6 +39,11 @@ public export
 Weaken Idx where
   weaken IZ = IZ
   weaken (IS i) = IS (weaken i)
+
+public export
+getName : (ns : Names) -> Idx ns -> Name
+getName (ns :< n) IZ = n
+getName (ns :< n) (IS i) = getName ns i
 
 public export
 firstIdx : Size ns -> Idx (ns :< n)
