@@ -52,6 +52,11 @@ sPis [<] b = b
 sPis (as :< (n, a)) b = sPis as (SPi n a b)
 
 public export
+sLams : (ps : Names) -> STm gs (ns ++ ps) -> STm gs ns
+sLams [<] b = b
+sLams (as :< n) b = sLams as (SLam n b)
+
+public export
 (.size) : Tel f ps ns -> Size ps
 (.size) [<] = SZ
 (.size) (xs :< _) = SS (xs.size)

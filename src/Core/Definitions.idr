@@ -20,6 +20,7 @@ namespace DefItem
   record DefItem (0 gs : GlobNames) where
     constructor MkDefItem
     name : Name
+    ps : Names
     params : Tel (VTy gs) ps [<]
     ty : VTy gs ps
     tm : STm (gs :< (ps ** MkGlobName n DefGlob)) ps
@@ -29,6 +30,7 @@ namespace CtorItem
   record CtorItem (0 gs : GlobNames) (0 is : Names) (0 ns : Names) where
     constructor MkCtorItem
     name : Name
+    ps : Names
     args : Tel (VTy gs) as ns
     rets : Spine (VTm gs) is (ns ++ as)
 
@@ -37,6 +39,7 @@ namespace DataItem
   record DataItem (0 gs : GlobNames) where
     constructor MkDataItem
     name : Name
+    ps : Names
     params : Tel (VTy gs) ps [<]
     indices : Tel (VTy gs) is ps
     ctors : Tel (CtorItem gs is) cs ps
@@ -46,6 +49,7 @@ namespace PrimItem
   record PrimItem (0 gs : GlobNames) where
     constructor MkDataItem
     name : Name
+    ps : Names
     params : Tel (VTy gs) ps [<]
     ty : VTy gs ps
 
@@ -70,7 +74,7 @@ namespace Sig
   public export
   data Sig : GlobNamed Type where
     Lin : Sig Lin
-    (:<) : Sig gs -> {g : GlobName ps} -> Item g ps gs -> Sig (gs :< (ps ** g))
+    (:<) : Sig gs -> {ps : Names} -> {g : GlobName ps} -> Item g ps gs -> Sig (gs :< (ps ** g))
 
 public export
 data Ctx : GlobNamed (Named (Named Type)) where
@@ -127,16 +131,19 @@ lookupLocal ctx@(Def ctx' n ty tm) m = case decEq n m of
   Yes p => Just (IZ, thisTerm ctx, rewrite p in Here)
   No q => map (\(i, t, e) => (IS i, t, There e)) (lookupLocal ctx' m)
 
+itemTy : Item n ps gs -> VTy gs bs
+
+
 public export
-lookupItem : Sig gs -> (n : Name) -> Maybe (Exists (\ps => (GlobNameIn gs ps, Size ps)))
+lookupItem : Sig gs -> (n : Name) -> Maybe (DPair Names (\ps => (GlobNameIn gs ps, VTy gs bs)))
 lookupItem [<] _ = Nothing
 lookupItem sig@((:<) {ps = ps} {g = g} sig' it) m = case decEq it.name m of
-  Yes p => Just (Evidence ps (MkGlobNameIn g Here, it.params.size))
-  No q => map (\(Evidence ps (g, s)) => Evidence ps (MkGlobNameIn g.name (There g.contained), s)) (lookupItem sig' m)
+  Yes p => Just (ps ** (MkGlobNameIn g Here, ?item1))
+  No q => map (\(ps ** (g, ty)) => (ps ** (MkGlobNameIn g.name (There g.contained), ?item2))) (lookupItem sig' m)
 
 public export
 data LookupResult : GlobNamed (Named (Named Type)) where
-  FoundItem : GlobNameIn gs ps -> Size ps -> LookupResult gs ns bs
+  FoundItem : (ps : Names) -> GlobNameIn gs ps -> VTy gs bs -> LookupResult gs ns bs
   FoundLocal : Idx ns -> VTerm gs bs -> Elem n ns -> LookupResult gs ns bs
   NotFound : LookupResult gs ns bs
 
@@ -145,5 +152,5 @@ lookupName : Context gs ns bs -> (n : Name) -> LookupResult gs ns bs
 lookupName (MkContext sig ctx) m = case lookupLocal ctx m of
     Just (i, t, e) => FoundLocal i t e
     Nothing => case lookupItem sig m of
-      Just (Evidence ps (g, s)) => FoundItem g s
+      Just (ps ** (g, t)) => FoundItem ps g t
       Nothing => NotFound

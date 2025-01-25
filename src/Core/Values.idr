@@ -2,6 +2,7 @@ module Core.Values
 
 import Data.SnocList
 import Data.DPair
+import Data.SnocList.Elem
 
 import Common
 import Context
@@ -99,3 +100,11 @@ record VTerm (0 gs : GlobNames) (0 bs : Names) where
 public export
 Weaken (VTerm gs) where
   weaken v = MkVTerm (weaken v.ty) (weaken v.tm)
+
+public export
+Weaken f => Weaken (Spine f ps)
+
+public export
+vHeres : Size ns -> Size ps -> Spine (VTm gs) ps (ns ++ ps)
+vHeres n SZ = [<]
+vHeres n (SS r) = weaken (vHeres n r) :< VVar (lastLvl (n + r))

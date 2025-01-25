@@ -68,14 +68,15 @@ mirror (Inferer _) k = Inferer $ \ctx => k ctx InferInput
 
 public export
 var : (Tc m) => Idx ns -> Typechecker m Infer gs ns bs
-var i = Inferer $ \ctx => case lookup ctx.local i of
+var i = Inferer $ \ctx => case getIdx ctx.local i of
     MkVTerm ty _ => pure (SVar i, ty)
 
 public export
 named : (Tc m) => Name -> Typechecker m Infer gs ns bs
-named n = Inferer $ \ctx => case lookupName ctx.local n of
-    Just (i, MkVTerm _ ty, _) => pure (SVar i, ty)
-    Nothing => tcError (NameNotFound n)
+named n = Inferer $ \ctx => case lookupName ctx n of
+    FoundLocal i (MkVTerm _ ty) _ => pure (SVar i, ty)
+    FoundItem ps g ty => pure (sLams ps (SGlob g (sHeres ctx.local.size ps.size)), ty)
+    NotFound => tcError (NameNotFound n)
 
 public export
 lam : (Tc m) => (n : Name) -> Typechecker m md gs (ns :< n) (bs :< n) -> Typechecker m Check gs ns bs

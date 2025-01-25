@@ -127,8 +127,12 @@ Eq (Lvl ns) where
   (==) _ _ = False
 
 public export
-interface Weaken (f : Named Type) where
+interface Weaken (f : Named Type) where --@@Todo: global
   weaken : f ns -> f (ns :< n)
+
+public export
+interface GlobWeaken (f : GlobNamed Type) where
+  globWeaken : f gs -> f (gs :< g)
 
 public export
 Weaken Lvl where
@@ -164,3 +168,8 @@ public export
 idxToLvl : Size ns -> Idx ns -> Lvl ns
 idxToLvl (SS n) IZ = lastLvl n
 idxToLvl (SS n) (IS i) = weaken $ idxToLvl n i
+
+public export
+(+) : Size ns -> Size ms -> Size (ns ++ ms)
+(+) m SZ = m
+(+) m (SS n) = SS (m + n)

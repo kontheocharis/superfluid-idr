@@ -51,6 +51,7 @@ appSpine f ((:<) {n = n} xs x) = SApp (appSpine f xs) n x
 public export
 quote : Size ns -> VTm gs ns -> STm gs ns
 
+public export
 quoteSpine : Size ns -> Spine (VTm gs) ps ns -> Spine (STm gs) ps ns
 quoteSpine s [<] = [<]
 quoteSpine s (xs :< x) = quoteSpine s xs :< quote s x
@@ -71,3 +72,7 @@ sub env t = eval env (quote (env.size) t)
 public export
 closeVal : Env gs ns ks -> VTm gs (ks :< u) -> Closure gs u ns
 closeVal env t = Cl env (quote (SS env.size) t)
+
+public export
+sHeres : Size ns -> Size ps -> Spine (STm gs) ps (ns ++ ps)
+sHeres nss pss = quoteSpine (nss + pss) (vHeres nss pss)
