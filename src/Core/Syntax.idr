@@ -51,6 +51,11 @@ sPis : Tel (STy gs) ps ns -> STy gs (ns ++ ps) -> STy gs ns
 sPis [<] b = b
 sPis (as :< (n, a)) b = sPis as (SPi n a b)
 
+public export
+(.size) : Tel f ps ns -> Size ps
+(.size) [<] = SZ
+(.size) (xs :< _) = SS (xs.size)
+
 -- public export
 -- data Sig : GlobNamed Type
 

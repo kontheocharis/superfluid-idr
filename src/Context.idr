@@ -36,6 +36,11 @@ data Size : Named Type where
   SS : Size ns -> Size (ns :< n)
 
 public export
+(.size) : (ns : Names) -> Size ns
+(.size) [<] = SZ
+(.size) (xs :< x) = SS xs.size
+
+public export
 data GlobKind : Type where
   CtorGlob : GlobKind
   DataGlob : GlobKind
@@ -45,7 +50,7 @@ data GlobKind : Type where
 public export
 record GlobName (0 ps : Names) where
   constructor MkGlobName
-  name : String
+  name : Name
   kind : GlobKind
 
 -- public export
@@ -94,8 +99,10 @@ public export
 GlobNamed t = (0 _ : GlobNames) -> t
 
 public export
-0 GlobNameIn : (0 _ : GlobNames) -> (0 _ : Names) -> Type
-GlobNameIn gs ps = Subset (GlobName ps) (\g => Elem (ps ** g) gs)
+record GlobNameIn (0 gs : GlobNames) (0 ps : Names) where
+  constructor MkGlobNameIn
+  name : GlobName ps
+  0 contained : Elem (ps ** name) gs
 
 public export
 data Idx : Named Type where
