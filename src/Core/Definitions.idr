@@ -26,15 +26,6 @@ namespace DefItem
     ty : VTy gs ps
     tm : STm (gs :< (ps ** MkGlobName n DefGlob)) ps
 
-namespace CtorItem
-  public export
-  record CtorItem (0 gs : GlobNames) (0 is : Names) (0 ns : Names) where
-    constructor MkCtorItem
-    name : Name
-    ps : Names
-    args : Tel (VTy gs) as ns
-    rets : Spine (VTm gs) is (ns ++ as)
-
 namespace DataItem
   public export
   record DataItem (0 gs : GlobNames) where
@@ -43,7 +34,23 @@ namespace DataItem
     ps : Names
     params : Tel (VTy gs) ps [<]
     indices : Tel (VTy gs) is ps
-    ctors : Tel (CtorItem gs is) cs ps
+    -- ctors : Tel (CtorItem gs is) cs ps
+
+  public export
+  data DataItemIn : Sig gs -> DataItem gs' -> Type
+
+  dataMember : {sig : Sig gs} -> {d : DataItem gs'} -> DataItemIn sig d -> Elem ((d.ps ++ d.is) ** (MkGlobName d.name DataGlob)) gs
+  dataMember = ?dataMemberImpl
+
+
+namespace CtorItem
+  public export
+  record CtorItem {0 s : Sig gs} (g : DataItemIn s d) where
+    constructor MkCtorItem
+    name : Name
+    args : Tel (VTy gs) as d.ps
+    rets : Spine (VTm gs) d.is (ns ++ as)
+
 
 namespace PrimItem
   public export
@@ -54,28 +61,30 @@ namespace PrimItem
     params : Tel (VTy gs) ps [<]
     ty : VTy gs ps
 
+
 namespace Item
   public export
-  data Item : GlobName ps -> (0 ps : Names) -> GlobNamed Type where
-    Def : (d : DefItem gs) -> Item (MkGlobName d.name DefGlob) d.ps gs
-    Data : (d : DataItem gs) -> Item (MkGlobName d.name DataGlob) d.ps gs
-    Prim : (p : PrimItem gs) -> Item (MkGlobName p.name PrimGlob) p.ps gs
+  data Item : Sig gs -> (0 ps : Names) -> GlobName ps -> GlobNamed Type where
+    Def : (d : DefItem gs) -> Item sig d.ps (MkGlobName d.name DefGlob) gs
+    Data : (d : DataItem gs) -> Item sig (d.ps ++ d.is) (MkGlobName d.name DataGlob) gs
+    Prim : (p : PrimItem gs) -> Item sig p.ps (MkGlobName p.name PrimGlob) gs
+    Ctor : (d : DataItem gs') -> {0 sig : Sig gs} -> (di : DataItemIn sig d) -> (c : CtorItem di) -> Item sig (d.ps ++ c.as) (MkGlobName c.name CtorGlob) gs
 
-(.name) : Item n ps gs -> Name
+public export
+(.name) : Item sig ps n gs -> Name
 (.name) (Def d) = d.name
 (.name) (Data d) = d.name
 (.name) (Prim p) = p.name
+(.name) (Ctor _ _ c) = c.name
 
-(.params) : Item n ps gs -> Tel (VTy gs) ps [<]
-(.params) (Def d) = d.params
-(.params) (Data d) = d.params
-(.params) (Prim p) = p.params
+appData : {d : DataItem gs'} -> {sig : Sig gs} -> DataItemIn sig d -> Spine (VTm gs) (d.ps ++ d.is) bs -> VTy gs bs
+appData {d = d} di sp = VGlob (MkGlobNameIn (MkGlobName d.name DataGlob) (dataMember di)) sp
 
 namespace Sig
   public export
   data Sig : GlobNamed Type where
     Lin : Sig Lin
-    (:<) : Sig gs -> {ps : Names} -> {g : GlobName ps} -> Item g ps gs -> Sig (gs :< (ps ** g))
+    (:<) : (sig : Sig gs) -> {ps : Names} -> {g : GlobName ps} -> Item sig ps g gs -> Sig (gs :< (ps ** g))
 
 public export
 data Ctx : GlobNamed (Named (Named Type)) where
@@ -126,16 +135,17 @@ public export
 lookupLocal : Ctx gs ns bs -> (n : Name) -> Maybe (Idx ns, VTerm gs bs, Elem n ns)
 lookupLocal [<] _ = Nothing
 lookupLocal ctx@(Bind ctx' n ty) m = case decEq n m of
-  Yes p => Just (IZ, thisTerm ctx, rewrite p in Here)
+  Yes Refl => Just (IZ, thisTerm ctx, Here)
   No q => map (\(i, t, e) => (IS i, weaken t, There e)) (lookupLocal ctx' m)
 lookupLocal ctx@(Def ctx' n ty tm) m = case decEq n m of
-  Yes p => Just (IZ, thisTerm ctx, rewrite p in Here)
+  Yes Refl => Just (IZ, thisTerm ctx, Here)
   No q => map (\(i, t, e) => (IS i, t, There e)) (lookupLocal ctx' m)
 
-itemTy : Item n ps gs -> VTy gs [<]
+itemTy : Item sig ps n gs -> VTy gs [<]
 itemTy (Def d) = vPis SZ d.params (rewrite appendLinLeftNeutral d.ps in d.ty)
 itemTy (Data d) = vPis SZ d.params (rewrite appendLinLeftNeutral d.ps in vPis d.params.size d.indices VU)
 itemTy (Prim p) = vPis SZ p.params (rewrite appendLinLeftNeutral p.ps in p.ty)
+itemTy (Ctor d di c) = vPis SZ (d.params ++ c.args) (appData di c.rets)
 
 public export
 lookupItem : Size bs -> Sig gs -> (n : Name) -> Maybe (DPair Names (\ps => (GlobNameIn gs ps, VTy gs bs)))

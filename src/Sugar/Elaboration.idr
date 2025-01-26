@@ -46,7 +46,7 @@ unelab ns (SPi n a b) = PPi n (unelab ns a) (unelab (ns :< n) b)
 unelab ns (SApp f n x) = PApp (unelab ns f) (unelab ns x)
 unelab ns (SVar i) = PName (getName ns i)
 unelab ns (SLet n a b) = PLet n Nothing (unelab ns a) (unelab (ns :< n) b)
-unelab ns (SGlob (Element n _) sp) = pApps (PName n.name) (unelabSpine ns sp)
+unelab ns (SGlob (MkGlobNameIn n _) sp) = pApps (PName n.name) (unelabSpine ns sp)
 unelab ns SU = PU
 
 public export

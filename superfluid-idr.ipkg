@@ -23,7 +23,7 @@ main = Main
 
 -- name of executable
 executable = "superfluid-idr"
--- opts =
+-- opts = "--total"
 sourcedir = "src"
 -- builddir =
 -- outputdir =

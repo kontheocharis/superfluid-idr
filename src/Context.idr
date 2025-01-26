@@ -119,6 +119,10 @@ record GlobNameIn (0 gs : GlobNames) (0 ps : Names) where
   0 contained : Elem (ps ** name) gs
 
 public export
+GlobKindNameIn : (kind : GlobKind) -> (0 gs : GlobNames) -> (0 ps : Names) -> Type
+GlobKindNameIn kind gs ps = Subset (GlobNameIn gs ps) (\(MkGlobNameIn n e) => kind = n.kind)
+
+public export
 data Idx : Named Type where
   IZ : Idx (ns :< n)
   IS : Idx ns -> Idx (ns :< n)
