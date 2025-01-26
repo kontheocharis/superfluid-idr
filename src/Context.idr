@@ -53,42 +53,56 @@ record GlobName (0 ps : Names) where
   name : Name
   kind : GlobKind
 
--- public export
--- Injective CtorGlob where
---   injective Refl = Refl
+public export
+DecEq GlobKind where
+  decEq CtorGlob CtorGlob = Yes Refl
+  decEq DataGlob DataGlob = Yes Refl
+  decEq DefGlob DefGlob = Yes Refl
+  decEq PrimGlob PrimGlob = Yes Refl
+  decEq CtorGlob DataGlob = No (\p => case p of
+      Refl impossible
+    )
+  decEq CtorGlob DefGlob = No (\p => case p of
+      Refl impossible
+    )
+  decEq CtorGlob PrimGlob = No (\p => case p of
+      Refl impossible
+    )
+  decEq DataGlob CtorGlob = No (\p => case p of
+      Refl impossible
+    )
+  decEq DataGlob DefGlob = No (\p => case p of
+      Refl impossible
+    )
+  decEq DataGlob PrimGlob = No (\p => case p of
+      Refl impossible
+    )
+  decEq DefGlob CtorGlob = No (\p => case p of
+      Refl impossible
+    )
+  decEq DefGlob DataGlob = No (\p => case p of
+      Refl impossible
+    )
+  decEq DefGlob PrimGlob = No (\p => case p of
+      Refl impossible
+    )
+  decEq PrimGlob CtorGlob = No (\p => case p of
+      Refl impossible
+    )
+  decEq PrimGlob DataGlob = No (\p => case p of
+      Refl impossible
+    )
+  decEq PrimGlob DefGlob = No (\p => case p of
+      Refl impossible
+    )
 
--- public export
--- Injective DataGlob where
---   injective Refl = Refl
-
--- public export
--- Injective DefGlob where
---   injective Refl = Refl
+public export
+Biinjective MkGlobName where
+  biinjective Refl = (Refl, Refl)
 
 public export
 DecEq (GlobName ps) where
-  decEq a b = ?holeGlobNameDecEq
-  -- decEq (DataGlob n) (DataGlob n') = decEqCong $ decEq n n'
-  -- decEq (DefGlob n) (DefGlob n') = decEqCong $ decEq n n'
-  -- decEq (CtorGlob _) (DataGlob _) = No (\p => case p of {
-  --   Refl impossible
-  -- })
-  -- decEq (CtorGlob _) (DefGlob _) = No (\p => case p of {
-  --   Refl impossible
-  -- })
-  -- decEq (DataGlob _) (CtorGlob _) = No (\p => case p of {
-  --   Refl impossible
-  -- })
-  -- decEq (DataGlob _) (DefGlob _) = No (\p => case p of {
-  --   Refl impossible
-  -- })
-  -- decEq (DefGlob _) (CtorGlob _) = No (\p => case p of {
-  --   Refl impossible
-  -- })
-  -- decEq (DefGlob _) (DataGlob _) = No (\p => case p of {
-  --   Refl impossible
-  -- })
-
+  decEq (MkGlobName n k) (MkGlobName n' k') = decEqCong2 (decEq n n') (decEq k k')
 
 public export
 0 GlobNames : Type
@@ -127,12 +141,16 @@ Eq (Lvl ns) where
   (==) _ _ = False
 
 public export
-interface Weaken (f : Named Type) where --@@Todo: global
+interface Weaken (f : Named Type) where
   weaken : f ns -> f (ns :< n)
 
 public export
-interface GlobWeaken (f : GlobNamed Type) where
-  globWeaken : f gs -> f (gs :< g)
+interface GlobWeaken (f : GlobNamed (Named Type)) where
+  globWeaken : f gs ns -> f (gs :< g) ns
+
+public export
+GlobWeaken GlobNameIn where
+  globWeaken (MkGlobNameIn n e) = MkGlobNameIn n (There e)
 
 public export
 Weaken Lvl where

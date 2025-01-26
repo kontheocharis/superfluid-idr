@@ -61,12 +61,25 @@ public export
 (.size) [<] = SZ
 (.size) (xs :< _) = SS (xs.size)
 
--- public export
--- data Sig : GlobNamed Type
+public export
+GlobWeaken STm
 
--- public export
--- data SigItem : (0 _ : GlobName) -> (0 _ : Sig gs) -> Type
+public export
+globWeakenSpine : Spine (STm gs) ps ns -> Spine (STm (gs :< g)) ps ns
+globWeakenSpine Lin = Lin
+globWeakenSpine (sp :< t) = globWeakenSpine sp :< globWeaken t
 
--- data Sig where
---   Lin : Sig [<]
---   (:<) : (si : Sig gs) -> SigItem g si -> Sig (gs :< g)
+public export
+GlobWeaken (\gs => Spine (STm gs) ps) where
+  globWeaken = globWeakenSpine
+
+public export
+GlobWeaken STm where
+  globWeaken (SVar i) = SVar i
+  globWeaken (SLam n t) = SLam n (globWeaken t)
+  globWeaken (SApp f n a) = SApp (globWeaken f) n (globWeaken a)
+  globWeaken (SPi n a b) = SPi n (globWeaken a) (globWeaken b)
+  globWeaken SU = SU
+  globWeaken (SLet n a b) = SLet n (globWeaken a) (globWeaken b)
+  globWeaken (SGlob n sp) = SGlob (globWeaken n) (globWeakenSpine sp)
+

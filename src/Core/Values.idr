@@ -54,42 +54,81 @@ public export
 idEnv : {auto s : Size ns} -> Env gs ns ns
 
 public export
+growEnv : (s : Size ns) -> Env gs ns ms -> Env gs (ns :< n) (ms :< m)
+
+idEnv {s = SZ} = [<]
+idEnv {s = (SS n)} = growEnv n (idEnv {s = n})
+
+public export
+Weaken (VTm gs)
+
+public export
+GlobWeaken VTm
+
+public export
 weakenEnv : Env gs ns ms -> Env gs (ns :< n) ms
+weakenEnv [<] = [<]
+weakenEnv (xs :< x) = weakenEnv xs :< weaken x
+
+public export
+globWeakenEnv : Env gs ns ms -> Env (gs :< g) ns ms
+globWeakenEnv [<] = [<]
+globWeakenEnv (xs :< x) = globWeakenEnv xs :< globWeaken x
+
+growEnv s env = weakenEnv env :< VVar (lastLvl s)
 
 public export
 weakenSpine : Spine (VTm gs) ps ns -> Spine (VTm gs) ps (ns :< n)
+weakenSpine [<] = [<]
+weakenSpine (xs :< x) = weakenSpine xs :< weaken x
 
 public export
-growEnv : (s : Size ns) -> Env gs ns ms -> Env gs (ns :< n) (ms :< m)
-growEnv s env = weakenEnv env :< VVar (lastLvl s)
+globWeakenSpine : Spine (VTm gs) ps ns -> Spine (VTm (gs :< g)) ps ns
+globWeakenSpine Lin = Lin
+globWeakenSpine (sp :< t) = globWeakenSpine sp :< globWeaken t
 
 public export
 Weaken (\ns => Env gs ns ms) where
   weaken = weakenEnv
 
 public export
+GlobWeaken (\gs => \ns => Env gs ns ms) where
+  globWeaken = globWeakenEnv
+
+public export
+Weaken (\ns => Spine (VTm gs) ps ns) where
+  weaken = weakenSpine
+
+public export
+GlobWeaken (\gs => \ns => Spine (VTm gs) ps ns) where
+  globWeaken = globWeakenSpine
+
+public export
 Weaken (Closure gs n) where
   weaken (Cl env t) = Cl (weakenEnv env) t
+
+globWeakenClosure : Closure gs n ns -> Closure (gs :< g) n ns
+globWeakenClosure (Cl env t) = Cl (globWeakenEnv env) (globWeaken t)
+
+public export
+GlobWeaken (\gs => \ns => Closure gs n ns) where
+  globWeaken = globWeakenClosure
 
 public export
 Weaken (VTm gs) where
   weaken (VLam n cl) = VLam n (weaken cl)
-  weaken (VRigid i sp) = VRigid (weaken i) (weakenSpine sp)
+  weaken (VRigid i sp) = VRigid (weaken i) (weaken sp)
   weaken (VPi n a cl) = VPi n (weaken a) (weaken cl)
   weaken VU = VU
-  weaken (VGlob n sp) = VGlob n (weakenSpine sp)
-
-idEnv {s = SZ} = [<]
-idEnv {s = (SS n)} = growEnv n (idEnv {s = n})
-
-weakenEnv [<] = [<]
-weakenEnv (xs :< x) = weakenEnv xs :< ?h1
-
-weakenSpine [<] = [<]
-weakenSpine (xs :< x) = weakenSpine xs :< ?h2
+  weaken (VGlob n sp) = VGlob n (weaken sp)
 
 public export
-chainEnv : Env gs ns ms -> Env gs ms ks -> Env gs ns ks
+GlobWeaken VTm where
+  globWeaken (VLam n cl) = VLam n (globWeakenClosure cl)
+  globWeaken (VRigid i sp) = VRigid i (globWeakenSpine sp)
+  globWeaken (VPi n a cl) = VPi n (globWeaken a) (globWeakenClosure cl)
+  globWeaken VU = VU
+  globWeaken (VGlob n sp) = VGlob (globWeaken n) (globWeakenSpine sp)
 
 public export
 record VTerm (0 gs : GlobNames) (0 bs : Names) where
@@ -102,7 +141,8 @@ Weaken (VTerm gs) where
   weaken v = MkVTerm (weaken v.ty) (weaken v.tm)
 
 public export
-Weaken f => Weaken (Spine f ps)
+GlobWeaken VTerm where
+  globWeaken v = MkVTerm (globWeaken v.ty) (globWeaken v.tm)
 
 public export
 vHeres : Size ns -> Size ps -> Spine (VTm gs) ps (ns ++ ps)
