@@ -78,6 +78,11 @@ globWeakenEnv (xs :< x) = globWeakenEnv xs :< globWeaken x
 growEnv s env = weakenEnv env :< VVar (lastLvl s)
 
 public export
+growEnvN : (s : Size ns) -> Size ps -> Env gs ns ms -> Env gs (ns ++ ps) (ms ++ ps)
+growEnvN s SZ env = env
+growEnvN s (SS n) env = growEnv (s + n) (growEnvN s n env)
+
+public export
 weakenSpine : Spine (VTm gs) ps ns -> Spine (VTm gs) ps (ns :< n)
 weakenSpine [<] = [<]
 weakenSpine (xs :< x) = weakenSpine xs :< weaken x

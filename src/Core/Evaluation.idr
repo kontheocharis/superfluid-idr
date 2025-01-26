@@ -76,3 +76,8 @@ closeVal env t = Cl env (quote (SS env.size) t)
 public export
 sHeres : Size ns -> Size ps -> Spine (STm gs) ps (ns ++ ps)
 sHeres nss pss = quoteSpine (nss + pss) (vHeres nss pss)
+
+public export
+vPis : Size ns -> Tel (VTm gs) ps ns -> VTm gs (ns ++ ps) -> VTm gs ns
+vPis nss [<] b = b
+vPis nss (as :< (n, a)) b = vPis nss as (VPi n a (closeVal (growEnvN nss as.size idEnv) b))

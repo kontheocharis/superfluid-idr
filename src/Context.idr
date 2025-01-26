@@ -33,7 +33,7 @@ Named t = (0 _ : Names) -> t
 public export
 data Size : Named Type where
   SZ : Size Lin
-  SS : Size ns -> Size (ns :< n)
+  SS : Size us -> Size (us :< u)
 
 public export
 (.size) : (ns : Names) -> Size ns
@@ -141,11 +141,19 @@ Eq (Lvl ns) where
   (==) _ _ = False
 
 public export
-interface Weaken (f : Named Type) where
+interface Weaken (0 f : Named Type) where
   weaken : f ns -> f (ns :< n)
 
+  weakenN : Size ms -> f ns -> f (ns ++ ms)
+  weakenN SZ x = x
+  weakenN (SS n) x = weaken (weakenN n x)
+
+  weakenTo : Size ns -> f [<] -> f ns
+  weakenTo SZ x = x
+  weakenTo (SS n) x = weaken (weakenTo n x)
+
 public export
-interface GlobWeaken (f : GlobNamed (Named Type)) where
+interface GlobWeaken (0 f : GlobNamed (Named Type)) where
   globWeaken : f gs ns -> f (gs :< g) ns
 
 public export

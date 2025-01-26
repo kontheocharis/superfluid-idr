@@ -3,6 +3,7 @@ module Core.Definitions
 import Data.DPair
 import Decidable.Equality
 import Data.SnocList.Elem
+import Data.SnocList
 
 import Common
 import Context
@@ -131,15 +132,17 @@ lookupLocal ctx@(Def ctx' n ty tm) m = case decEq n m of
   Yes p => Just (IZ, thisTerm ctx, rewrite p in Here)
   No q => map (\(i, t, e) => (IS i, t, There e)) (lookupLocal ctx' m)
 
-itemTy : Item n ps gs -> VTy gs bs
-
+itemTy : Item n ps gs -> VTy gs [<]
+itemTy (Def d) = vPis SZ d.params (rewrite appendLinLeftNeutral d.ps in d.ty)
+itemTy (Data d) = vPis SZ d.params (rewrite appendLinLeftNeutral d.ps in vPis d.params.size d.indices VU)
+itemTy (Prim p) = vPis SZ p.params (rewrite appendLinLeftNeutral p.ps in p.ty)
 
 public export
-lookupItem : Sig gs -> (n : Name) -> Maybe (DPair Names (\ps => (GlobNameIn gs ps, VTy gs bs)))
-lookupItem [<] _ = Nothing
-lookupItem sig@((:<) {ps = ps} {g = g} sig' it) m = case decEq it.name m of
-  Yes p => Just (ps ** (MkGlobNameIn g Here, ?item1))
-  No q => map (\(ps ** (g, ty)) => (ps ** (MkGlobNameIn g.name (There g.contained), ?item2))) (lookupItem sig' m)
+lookupItem : Size bs -> Sig gs -> (n : Name) -> Maybe (DPair Names (\ps => (GlobNameIn gs ps, VTy gs bs)))
+lookupItem s [<] _ = Nothing
+lookupItem s sig@((:<) {ps = ps} {g = g} sig' it) m = case decEq it.name m of
+  Yes p => Just (ps ** (MkGlobNameIn g Here, weakenTo s (globWeaken (itemTy it))))
+  No q => map (\(ps ** (g, ty)) => (ps ** (MkGlobNameIn g.name (There g.contained), globWeaken ty))) (lookupItem s sig' m)
 
 public export
 data LookupResult : GlobNamed (Named (Named Type)) where
@@ -151,6 +154,6 @@ public export
 lookupName : Context gs ns bs -> (n : Name) -> LookupResult gs ns bs
 lookupName (MkContext sig ctx) m = case lookupLocal ctx m of
     Just (i, t, e) => FoundLocal i t e
-    Nothing => case lookupItem sig m of
+    Nothing => case lookupItem ctx.bindsSize sig m of
       Just (ps ** (g, t)) => FoundItem ps g t
       Nothing => NotFound
