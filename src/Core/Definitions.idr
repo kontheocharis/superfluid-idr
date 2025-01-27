@@ -4,6 +4,7 @@ import Data.DPair
 import Decidable.Equality
 import Data.SnocList.Elem
 import Data.SnocList
+import Data.Singleton
 
 import Common
 import Context
@@ -16,9 +17,45 @@ namespace Sig
   public export
   data Sig : GlobNamed Type
 
+namespace Item
+  public export
+  data Item : Sig gs -> Type
+
+  public export
+  data ItemIn : Sig gs' -> Item sig -> Type
+
 namespace DefItem
   public export
-  record DefItem (0 gs : GlobNames) where
+  record DefItem (0 sig : Sig gs)
+
+namespace DataItem
+  public export
+  record DataItem (0 sig : Sig gs)
+
+Data' : (d : DataItem sig) -> Item sig
+
+namespace CtorItem
+  public export
+  record CtorItem (di : ItemIn sig (Data' d))
+
+namespace PrimItem
+  public export
+  record PrimItem (0 sig : Sig gs)
+
+namespace Item
+
+  public export
+  data Item : Sig gs -> Type where
+    Def : DefItem sig -> Item sig
+    Data : DataItem sig -> Item sig
+    Prim : PrimItem sig -> Item sig
+    Ctor : {0 d : DataItem sig'} -> {di : ItemIn sig (Data' d)} -> CtorItem {d = d} di -> Item sig
+
+Data' d = Data d
+
+namespace DefItem
+  public export
+  record DefItem (0 sig : Sig gs) where
     constructor MkDefItem
     name : Name
     ps : Names
@@ -28,63 +65,80 @@ namespace DefItem
 
 namespace DataItem
   public export
-  record DataItem (0 gs : GlobNames) where
+  record DataItem (0 sig : Sig gs) where
     constructor MkDataItem
     name : Name
     ps : Names
+    is : Names
     params : Tel (VTy gs) ps [<]
     indices : Tel (VTy gs) is ps
-    -- ctors : Tel (CtorItem gs is) cs ps
-
-  public export
-  data DataItemIn : Sig gs -> DataItem gs' -> Type
-
-  dataMember : {sig : Sig gs} -> {d : DataItem gs'} -> DataItemIn sig d -> Elem ((d.ps ++ d.is) ** (MkGlobName d.name DataGlob)) gs
-  dataMember = ?dataMemberImpl
-
 
 namespace CtorItem
   public export
-  record CtorItem {0 s : Sig gs} (g : DataItemIn s d) where
+  record CtorItem (di : ItemIn sig (Data' d)) where
     constructor MkCtorItem
     name : Name
+    as : Names
     args : Tel (VTy gs) as d.ps
     rets : Spine (VTm gs) d.is (ns ++ as)
 
-
 namespace PrimItem
   public export
-  record PrimItem (0 gs : GlobNames) where
+  record PrimItem (0 sig : Sig gs) where
     constructor MkDataItem
     name : Name
     ps : Names
     params : Tel (VTy gs) ps [<]
     ty : VTy gs ps
 
-
-namespace Item
-  public export
-  data Item : Sig gs -> (0 ps : Names) -> GlobName ps -> GlobNamed Type where
-    Def : (d : DefItem gs) -> Item sig d.ps (MkGlobName d.name DefGlob) gs
-    Data : (d : DataItem gs) -> Item sig (d.ps ++ d.is) (MkGlobName d.name DataGlob) gs
-    Prim : (p : PrimItem gs) -> Item sig p.ps (MkGlobName p.name PrimGlob) gs
-    Ctor : (d : DataItem gs') -> {0 sig : Sig gs} -> (di : DataItemIn sig d) -> (c : CtorItem di) -> Item sig (d.ps ++ c.as) (MkGlobName c.name CtorGlob) gs
-
 public export
-(.name) : Item sig ps n gs -> Name
+(.name) : Item sig -> Name
 (.name) (Def d) = d.name
 (.name) (Data d) = d.name
 (.name) (Prim p) = p.name
-(.name) (Ctor _ _ c) = c.name
+(.name) (Ctor c) = c.name
 
-appData : {d : DataItem gs'} -> {sig : Sig gs} -> DataItemIn sig d -> Spine (VTm gs) (d.ps ++ d.is) bs -> VTy gs bs
-appData {d = d} di sp = VGlob (MkGlobNameIn (MkGlobName d.name DataGlob) (dataMember di)) sp
+public export
+(.arity) : {sig : Sig gs} -> Item sig -> Names
+
+public export
+(.globName) : (i : Item sig) -> GlobName i.arity
+(.globName) (Def d) = MkGlobName d.name DefGlob
+(.globName) (Data d) = MkGlobName d.name DataGlob
+(.globName) (Prim p) = MkGlobName p.name PrimGlob
+(.globName) (Ctor c) = MkGlobName c.name CtorGlob
 
 namespace Sig
   public export
   data Sig : GlobNamed Type where
     Lin : Sig Lin
-    (:<) : (sig : Sig gs) -> {ps : Names} -> {g : GlobName ps} -> Item sig ps g gs -> Sig (gs :< (ps ** g))
+    (:<) : (sig : Sig gs) -> (i : Item sig) -> Sig (gs :< (i.arity ** i.globName))
+
+namespace Item
+  data ItemIn : (sig : Sig gs) -> Item sig' -> Type where
+    Here : {0 i : Item sig} -> ItemIn (sig :< i) i
+    There : {0 i : Item sig} -> {0 j : Item sig'} -> ItemIn sig j -> ItemIn (sig :< i) j
+
+public export
+globNameElem : {0 sig : Sig gs} -> {0 i : Item sig'} -> ItemIn sig i -> Elem (i.arity ** i.globName) gs
+globNameElem Here = Here
+globNameElem (There p) = There (globNameElem p)
+
+public export
+getItem : {sig : Sig gs} -> {0 i : Item sig'} -> ItemIn sig i -> Singleton i
+getItem {sig = (sig :< i)} p = case p of
+  Here => Val i
+  There p => getItem {sig = sig} p
+
+public export
+getDataItem : {sig : Sig gs} -> {0 d : DataItem sig'} -> ItemIn sig (Data d) -> Singleton d
+getDataItem i = case getItem i of
+  Val (Data d) => Val d
+
+(.arity) (Def d) = d.ps
+(.arity) (Data d) = d.ps ++ d.is
+(.arity) (Prim p) = p.ps
+(.arity) (Ctor {di = di} c) = let d = getDataItem di in d.value.ps ++ c.as
 
 public export
 data Ctx : GlobNamed (Named (Named Type)) where
@@ -97,6 +151,10 @@ record Context (0 gs : GlobNames) (0 ns : Names) (0 bs : Names) where
   constructor MkContext
   global : Sig gs
   local : Ctx gs ns bs
+
+vGlob : {sig : Sig gs} -> {0 i : Item sig'} -> ItemIn sig i -> Spine (VTm gs) i.arity bs -> VTm gs bs
+vGlob {sig = sig} {i = i} p sp = let it = getItem p in
+  VGlob (MkGlobNameIn it.value.globName (rewrite it.identity in globNameElem p)) (rewrite it.identity in sp)
 
 public export
 mapLocal : (Ctx gs ns bs -> Ctx gs ns' bs') -> Context gs ns bs -> Context gs ns' bs'
@@ -141,17 +199,17 @@ lookupLocal ctx@(Def ctx' n ty tm) m = case decEq n m of
   Yes Refl => Just (IZ, thisTerm ctx, Here)
   No q => map (\(i, t, e) => (IS i, t, There e)) (lookupLocal ctx' m)
 
-itemTy : Item sig ps n gs -> VTy gs [<]
+itemTy : {sig : Sig gs} -> Item sig -> VTy gs [<]
 itemTy (Def d) = vPis SZ d.params (rewrite appendLinLeftNeutral d.ps in d.ty)
 itemTy (Data d) = vPis SZ d.params (rewrite appendLinLeftNeutral d.ps in vPis d.params.size d.indices VU)
 itemTy (Prim p) = vPis SZ p.params (rewrite appendLinLeftNeutral p.ps in p.ty)
-itemTy (Ctor d di c) = vPis SZ (d.params ++ c.args) (appData di c.rets)
+itemTy (Ctor {di = di} c) = let d = getDataItem di in vPis SZ (d.value.params ++ c.args) (vGlob di c.rets)
 
 public export
 lookupItem : Size bs -> Sig gs -> (n : Name) -> Maybe (DPair Names (\ps => (GlobNameIn gs ps, VTy gs bs)))
 lookupItem s [<] _ = Nothing
-lookupItem s sig@((:<) {ps = ps} {g = g} sig' it) m = case decEq it.name m of
-  Yes p => Just (ps ** (MkGlobNameIn g Here, weakenTo s (globWeaken (itemTy it))))
+lookupItem s sig@((:<) sig' it) m = case decEq it.name m of
+  Yes p => Just (it.arity ** (MkGlobNameIn it.globName Here, weakenTo s (globWeaken (itemTy it))))
   No q => map (\(ps ** (g, ty)) => (ps ** (MkGlobNameIn g.name (There g.contained), globWeaken ty))) (lookupItem s sig' m)
 
 public export

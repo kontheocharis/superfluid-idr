@@ -1,5 +1,7 @@
 module Common
 
+import Data.Singleton
+
 -- | A literal
 public export
 data Lit
@@ -16,3 +18,11 @@ Show Lit where
 public export
 error : String -> a
 error s = assert_total $ idris_crash s
+
+public export
+(.value) : {0 x : a} -> Singleton x -> a
+(.value) (Val x) = x
+
+public export
+(.identity) : {0 x : a} -> (s : Singleton x) -> s.value = x
+(.identity) (Val y) = Refl
