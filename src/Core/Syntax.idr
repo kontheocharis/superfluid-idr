@@ -32,19 +32,24 @@ namespace Tel
     Lin : Tel f [<] ns
     (:<) : (c : Tel f ps ns) -> (p : (Name, f (ns ++ ps))) -> Tel f (ps :< fst p) ns
 
+  public export
+  (++) : Tel f' ps' ns' -> Tel f' qs' (ns' ++ ps') -> Tel f' (ps' ++ qs') ns'
+  (++) te [<] = te
+  (++) te ((:<) {ps = ps} te' (n, t)) = (te ++ te') :< (n, rewrite appendAssociative ns' ps' ps in t)
+
 namespace Spine
   data Spine where
     Lin : Spine f [<] ns
     (:<) : (c : Spine f ps ns) -> f ns -> Spine f (ps :< n) ns
 
+  public export
+  (++) : Spine f' ps' ns' -> Spine f' qs' ns' -> Spine f' (ps' ++ qs') ns'
+  (++) te [<] = te
+  (++) te ((:<) {ps = ps} te' t) = (te ++ te') :< t
+
 public export
 Con : (Named Type) -> Named Type
 Con f ps = Tel f ps [<]
-
-public export
-(++) : Tel f' ps' ns' -> Tel f' qs' (ns' ++ ps') -> Tel f' (ps' ++ qs') ns'
-(++) te [<] = te
-(++) te ((:<) {ps = ps} te' (n, t)) = (te ++ te') :< (n, rewrite appendAssociative ns' ps' ps in t)
 
 public export
 sPis : Tel (STy gs) ps ns -> STy gs (ns ++ ps) -> STy gs ns
@@ -65,13 +70,22 @@ public export
 GlobWeaken STm
 
 public export
-globWeakenSpine : Spine (STm gs) ps ns -> Spine (STm (gs :< g)) ps ns
+globWeakenSpine : (GlobWeaken f) => Spine (f gs) ps ns -> Spine (f (gs :< g)) ps ns
 globWeakenSpine Lin = Lin
 globWeakenSpine (sp :< t) = globWeakenSpine sp :< globWeaken t
 
 public export
-GlobWeaken (\gs => Spine (STm gs) ps) where
+globWeakenTel : (GlobWeaken f) => Tel (f gs) ps ns -> Tel (f (gs :< g)) ps ns
+globWeakenTel Lin = Lin
+globWeakenTel (sp :< (n, t)) = globWeakenTel sp :< (n, globWeaken t)
+
+public export
+[globWeakenForSpine] GlobWeaken f => GlobWeaken (\gs => Spine (f gs) ps) where
   globWeaken = globWeakenSpine
+
+public export
+[globWeakenForTel] GlobWeaken f => GlobWeaken (\gs => Tel (f gs) ps) where
+  globWeaken = globWeakenTel
 
 public export
 GlobWeaken STm where

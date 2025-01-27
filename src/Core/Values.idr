@@ -88,11 +88,6 @@ weakenSpine [<] = [<]
 weakenSpine (xs :< x) = weakenSpine xs :< weaken x
 
 public export
-globWeakenSpine : Spine (VTm gs) ps ns -> Spine (VTm (gs :< g)) ps ns
-globWeakenSpine Lin = Lin
-globWeakenSpine (sp :< t) = globWeakenSpine sp :< globWeaken t
-
-public export
 Weaken (\ns => Env gs ns ms) where
   weaken = weakenEnv
 
@@ -103,10 +98,6 @@ GlobWeaken (\gs => \ns => Env gs ns ms) where
 public export
 Weaken (\ns => Spine (VTm gs) ps ns) where
   weaken = weakenSpine
-
-public export
-GlobWeaken (\gs => \ns => Spine (VTm gs) ps ns) where
-  globWeaken = globWeakenSpine
 
 public export
 Weaken (Closure gs n) where
@@ -128,7 +119,7 @@ Weaken (VTm gs) where
   weaken (VGlob n sp) = VGlob n (weaken sp)
 
 public export
-GlobWeaken VTm where
+[globWeakenForVTm] GlobWeaken VTm where
   globWeaken (VLam n cl) = VLam n (globWeakenClosure cl)
   globWeaken (VRigid i sp) = VRigid i (globWeakenSpine sp)
   globWeaken (VPi n a cl) = VPi n (globWeaken a) (globWeakenClosure cl)

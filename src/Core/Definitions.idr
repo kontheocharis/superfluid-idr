@@ -36,7 +36,7 @@ Data' : (d : DataItem sig) -> Item sig
 
 namespace CtorItem
   public export
-  record CtorItem (di : ItemIn sig (Data' d))
+  record CtorItem {0 sig : Sig gs} {d : DataItem sig'} (di : ItemIn sig (Data' d))
 
 namespace PrimItem
   public export
@@ -75,12 +75,12 @@ namespace DataItem
 
 namespace CtorItem
   public export
-  record CtorItem (di : ItemIn sig (Data' d)) where
+  record CtorItem {0 sig : Sig gs} {d : DataItem sig'} (di : ItemIn sig (Data' d)) where
     constructor MkCtorItem
     name : Name
     as : Names
     args : Tel (VTy gs) as d.ps
-    rets : Spine (VTm gs) d.is (ns ++ as)
+    rets : Spine (VTm gs) d.is (d.ps ++ as)
 
 namespace PrimItem
   public export
@@ -123,6 +123,10 @@ public export
 globNameElem : {0 sig : Sig gs} -> {0 i : Item sig'} -> ItemIn sig i -> Elem (i.arity ** i.globName) gs
 globNameElem Here = Here
 globNameElem (There p) = There (globNameElem p)
+
+public export
+globWeakenByItem : GlobWeaken f => {0 sig : Sig gs} -> {0 sig' : Sig gs'} -> {0 i : Item sig'} -> ItemIn sig i -> f gs' ns -> f gs ns
+globWeakenByItem = ?globWeakenByItemPrf
 
 public export
 getItem : {sig : Sig gs} -> {0 i : Item sig'} -> ItemIn sig i -> Singleton i
@@ -199,11 +203,18 @@ lookupLocal ctx@(Def ctx' n ty tm) m = case decEq n m of
   Yes Refl => Just (IZ, thisTerm ctx, Here)
   No q => map (\(i, t, e) => (IS i, t, There e)) (lookupLocal ctx' m)
 
-itemTy : {sig : Sig gs} -> Item sig -> VTy gs [<]
+public export
+itemTy : {sig : Sig us} -> Item sig -> VTy us [<]
 itemTy (Def d) = vPis SZ d.params (rewrite appendLinLeftNeutral d.ps in d.ty)
 itemTy (Data d) = vPis SZ d.params (rewrite appendLinLeftNeutral d.ps in vPis d.params.size d.indices VU)
 itemTy (Prim p) = vPis SZ p.params (rewrite appendLinLeftNeutral p.ps in p.ty)
-itemTy (Ctor {di = di} c) = let d = getDataItem di in vPis SZ (d.value.params ++ c.args) (vGlob di c.rets)
+itemTy (Ctor {di = di} c) = case getDataItem di of
+  Val d =>
+    let params = globWeakenByItem @{globWeakenForTel} di d.params ++
+        (rewrite appendLinLeftNeutral d.ps in c.args) in
+    let paramSp = vHeres SZ d.params.size in
+    let ret = weakenN c.args.size paramSp ++ (rewrite appendLinLeftNeutral d.ps in c.rets) in
+    vPis SZ params (vGlob di (rewrite (appendAssociative [<] d.ps c.as) in ret))
 
 public export
 lookupItem : Size bs -> Sig gs -> (n : Name) -> Maybe (DPair Names (\ps => (GlobNameIn gs ps, VTy gs bs)))
