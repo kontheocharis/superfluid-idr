@@ -1,10 +1,12 @@
 module Surface.Unelaboration
 
+import Core.Definitions
 import Data.SnocList
 import Data.Singleton
 import Common
 import Context
 import Surface.Presyntax
+import Surface.Elaboration
 import Core.Syntax
 import Core.Values
 import Core.Evaluation
@@ -41,3 +43,7 @@ Show TcError where
   show ExpectedPi = "Expected function type"
   show (Mismatch (Val bs) a b) = "Mismatch: " ++ show a ++ " vs " ++ show b
   show (NameNotFound n) = "Name " ++ show n ++ " not found"
+
+public export
+Show ElabError where
+  show CannotInferLam = "Cannot infer type of lambda"

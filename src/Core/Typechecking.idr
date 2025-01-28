@@ -14,7 +14,7 @@ import Core.Conversion
 import Core.Definitions
 
 public export
-data Mode = Check | Infer
+data TcMode = Check | Infer
 
 public export
 data TcError : Type where
@@ -26,12 +26,13 @@ public export
 interface (Monad m) => Tc m where
   tcError : TcError -> m a
 
-data ModeInput : (0 _ : Mode) -> GlobNamed (Named Type) where
-  CheckInput : VTy gs bs -> ModeInput Check gs bs
-  InferInput : ModeInput Infer gs bs
+public export
+data TcModeInput : (0 _ : TcMode) -> GlobNamed (Named Type) where
+  CheckInput : VTy gs bs -> TcModeInput Check gs bs
+  InferInput : TcModeInput Infer gs bs
 
 public export
-data Typechecker : (0 m : Type -> Type) -> (Tc m) => (0 _ : Mode) -> GlobNamed (Named (Named Type)) where
+data Typechecker : (0 m : Type -> Type) -> (Tc m) => (0 _ : TcMode) -> GlobNamed (Named (Named Type)) where
   Checker : (Tc m) => (Context gs ns bs -> VTy gs bs -> m (STm gs ns)) -> Typechecker m Check gs ns bs
   Inferer : (Tc m) => (Context gs ns bs -> m (STm gs ns, VTy gs bs)) -> Typechecker m Infer gs ns bs
 
@@ -56,12 +57,12 @@ infer : (Tc m) => Typechecker m Infer gs ns bs -> Context gs ns bs -> m (STm gs 
 infer (Inferer f) ctx = f ctx
 
 public export
-run : (Tc m) => Typechecker m md gs ns bs -> Context gs ns bs -> ModeInput md gs bs -> m (STm gs ns, VTy gs bs)
+run : (Tc m) => Typechecker m md gs ns bs -> Context gs ns bs -> TcModeInput md gs bs -> m (STm gs ns, VTy gs bs)
 run (Checker f) ctx (CheckInput ty) = f ctx ty >>= \t => pure (t, ty)
 run (Inferer f) ctx InferInput = f ctx
 
 public export
-mirror : (Tc m) => Typechecker m md gs ns bs -> (Context gs' ns' bs' -> ModeInput md gs' bs' -> m (STm gs' ns', VTy gs' bs')) -> Typechecker m md gs' ns' bs'
+mirror : (Tc m) => Typechecker m md gs ns bs -> (Context gs' ns' bs' -> TcModeInput md gs' bs' -> m (STm gs' ns', VTy gs' bs')) -> Typechecker m md gs' ns' bs'
 mirror (Checker _) k = Checker $ \ctx => \ty => do
   (a, _) <- k ctx (CheckInput ty)
   pure a

@@ -16,22 +16,6 @@ import Core.Evaluation
 import Core.Typechecking
 import Core.Definitions
 
-record CompilerState where
-  constructor MkCompilerState
-  sig : Sig Lin
-
-Context' : Type
-Context' = Context Lin Lin Lin
-
-Context0 : Type
-Context0 = Context Lin [<] [<]
-
-initContext : Context0
-initContext = MkContext Lin Lin
-
-Show ElabError where
-  show CannotInferLam = "Cannot infer type of lambda expression"
-
 Tc IO where
   tcError err = do
     putStrLn "Type error:"
@@ -39,23 +23,25 @@ Tc IO where
     exitWith (ExitFailure 1)
 
 Elab IO where
-  errorElab = tcError
+  elabError err = do
+    putStrLn "Elaboration error:"
+    putStrLn $ "  " ++ show err
+    exitWith (ExitFailure 1)
 
-evalTerm : Context0 -> String -> IO ()
+evalTerm : (bs : Names) => Context gs ns bs -> String -> IO ()
 evalTerm ctx s = do
   Right parsed <- pure $ parse tm s
     | Left err => do
         putStrLn "Parse error:"
         putStrLn $ "  " ++ show err
         exitWith (ExitFailure 1)
-
-  (core, ty) <- run (elab Infer) ctx InferInput
-  let val = eval [<] core
+  (core, ty) <- infer (elab Infer parsed) ctx
+  let val = eval ctx.local.env core
   putStrLn $ "Type: " ++ show ty
   putStrLn $ "Value: " ++ show val
 
 processTerm : String -> IO ()
-processTerm input = evalTerm initContext input
+processTerm input = evalTerm (MkContext [<] [<]) input
 
 processFile : String -> IO ()
 processFile filename = do
