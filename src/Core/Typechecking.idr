@@ -76,7 +76,7 @@ var i = Inferer $ \ctx => case getIdx ctx.local i of
 public export
 named : (Tc m) => Name -> Typechecker m Infer gs ns bs
 named n = Inferer $ \ctx => case lookupName ctx n of
-    FoundLocal i (MkVTerm _ ty) _ => pure (SVar i, ty)
+    FoundLocal i (MkVTerm ty _) _ => pure (SVar i, ty)
     FoundItem ps g ty => pure (sLams ps (SGlob g (sHeres ctx.local.size ps.size)), ty)
     NotFound => tcError (NameNotFound n)
 

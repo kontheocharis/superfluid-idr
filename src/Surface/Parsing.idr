@@ -30,13 +30,6 @@ record Parser (a : Type) where
   constructor MkParser
   runParser : List Char -> Either ParseError (a, List Char)
 
-public export
-parse : Parser a -> String -> Either ParseError a
-parse p s = case runParser p (unpack s) of
-  Left s => Left s
-  Right (a, []) => Right a
-  Right (_, _) => Left TrailingChars
-
 Functor Parser where
   map f p = MkParser $ \ts => case runParser p ts of
     Left s => Left s
@@ -171,7 +164,7 @@ app = atom $ do
 
 pi : Parser PTm
 pi = atom $ do
-  ns <- tel
+  ns <- tel <|> (singleTm >>= \t => pure ([(MkName "_", t)] ** IsNonEmpty))
   symbol "->"
   t <- tm
   pure $ foldr (\(n, ty) => \t => PPi n ty t) t ns.fst
@@ -195,3 +188,10 @@ letIn = atom $ do
 tm = lam <|> pi <|> letIn <|> app <|> singleTm
 
 singleTm = u <|> (PName <$> name) <|> parens tm
+
+public export
+parse : Parser a -> String -> Either ParseError a
+parse p s = case runParser (whitespace >> p) (unpack s) of
+  Left s => Left s
+  Right (a, []) => Right a
+  Right (_, _) => Left TrailingChars

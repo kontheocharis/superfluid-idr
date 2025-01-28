@@ -35,8 +35,9 @@ evalTerm ctx s = do
         putStrLn "Parse error:"
         putStrLn $ "  " ++ show err
         exitWith (ExitFailure 1)
-  (core, ty) <- infer (elab Infer parsed) ctx
-  let val = eval ctx.local.env core
+  (tm, ty) <- infer (elab Infer parsed) ctx
+  let val = eval ctx.local.env tm
+  putStrLn $ "Raw: " ++ show parsed
   putStrLn $ "Type: " ++ show ty
   putStrLn $ "Value: " ++ show val
 

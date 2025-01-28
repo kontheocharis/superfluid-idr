@@ -1,0 +1,4 @@
+
+let Nat = (A : U) -> A -> (A -> A) -> A;
+
+Nat
