@@ -156,6 +156,7 @@ record Context (0 gs : GlobNames) (0 ns : Names) (0 bs : Names) where
   global : Sig gs
   local : Ctx gs ns bs
 
+public export
 vGlob : {sig : Sig gs} -> {0 i : Item sig'} -> ItemIn sig i -> Spine (VTm gs) i.arity bs -> VTm gs bs
 vGlob {sig = sig} {i = i} p sp = let it = getItem p in
   VGlob (MkGlobNameIn it.value.globName (rewrite it.identity in globNameElem p)) (rewrite it.identity in sp)
@@ -163,6 +164,18 @@ vGlob {sig = sig} {i = i} p sp = let it = getItem p in
 public export
 mapLocal : (Ctx gs ns bs -> Ctx gs ns' bs') -> Context gs ns bs -> Context gs ns' bs'
 mapLocal f c = MkContext c.global (f c.local)
+
+public export
+(.binds) : Ctx gs ns bs -> Singleton bs
+(.binds) Lin = Val [<]
+(.binds) (Bind ctx n _) = let Val bs = ctx.binds in Val $ bs :< n
+(.binds) (Def ctx _ _ _) = ctx.binds
+
+public export
+(.names) : Ctx gs ns bs -> Singleton ns
+(.names) Lin = Val [<]
+(.names) (Bind ctx n _) = let Val ns = ctx.names in Val $ ns :< n
+(.names) (Def ctx n _ _) = let Val ns = ctx.names in Val $ ns :< n
 
 public export
 (.bindsSize) : Ctx gs ns bs -> Size bs
@@ -210,11 +223,11 @@ itemTy (Data d) = vPis SZ d.params (rewrite appendLinLeftNeutral d.ps in vPis d.
 itemTy (Prim p) = vPis SZ p.params (rewrite appendLinLeftNeutral p.ps in p.ty)
 itemTy (Ctor {di = di} c) = case getDataItem di of
   Val d =>
-    let params = globWeakenByItem @{globWeakenForTel} di d.params ++
-        (rewrite appendLinLeftNeutral d.ps in c.args) in
-    let paramSp = vHeres SZ d.params.size in
-    let ret = weakenN c.args.size paramSp ++ (rewrite appendLinLeftNeutral d.ps in c.rets) in
-    vPis SZ params (vGlob di (rewrite (appendAssociative [<] d.ps c.as) in ret))
+    let params = globWeakenByItem @{globWeakenForTel} di d.params
+         ++ (rewrite appendLinLeftNeutral d.ps in c.args) in
+    let paramSp = weakenN c.args.size (vHeres SZ d.params.size) in
+    let ret = paramSp ++ rewrite appendLinLeftNeutral d.ps in c.rets in
+    vPis SZ params (vGlob di (rewrite appendAssociative [<] d.ps c.as in ret))
 
 public export
 lookupItem : Size bs -> Sig gs -> (n : Name) -> Maybe (DPair Names (\ps => (GlobNameIn gs ps, VTy gs bs)))

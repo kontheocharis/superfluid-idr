@@ -15,6 +15,10 @@ record Name where
   name : String
 
 public export
+Show Name where
+  show (MkName n) = n
+
+public export
 Injective MkName where
   injective Refl = Refl
 

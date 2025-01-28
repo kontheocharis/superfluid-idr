@@ -3,6 +3,7 @@ module Core.Typechecking
 import Data.DPair
 import Decidable.Equality
 import Data.SnocList.Elem
+import Data.Singleton
 
 import Common
 import Context
@@ -18,7 +19,7 @@ data Mode = Check | Infer
 public export
 data TcError : Type where
   ExpectedPi : TcError
-  Mismatch : VTm gs bs -> VTm gs bs -> TcError
+  Mismatch : Singleton bs -> VTm gs bs -> VTm gs bs -> TcError
   NameNotFound : (n : Name) -> TcError
 
 public export
@@ -36,7 +37,7 @@ data Typechecker : (0 m : Type -> Type) -> (Tc m) => (0 _ : Mode) -> GlobNamed (
 
 public export
 convertOrError : (Tc m) => Context gs ns bs -> VTy gs bs -> VTy gs bs -> m ()
-convertOrError ctx a b = if convert ctx.local.bindsSize a b then pure () else tcError (Mismatch a b)
+convertOrError ctx a b = if convert ctx.local.bindsSize a b then pure () else tcError (Mismatch ctx.local.binds a b)
 
 public export
 switch : (Tc m) => Typechecker m Infer gs ns bs -> Typechecker m Check gs ns bs
