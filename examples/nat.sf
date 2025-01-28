@@ -1,0 +1,26 @@
+
+let Nat = (A : U) -> A -> (A -> A) -> A;
+
+let zero : Nat = \A z s => z;
+
+let succ : Nat -> Nat = \n A z s => s (n A z s);
+
+let elim : (A : U) -> A -> (A -> A) -> Nat -> A = \A z s n => n A z s;
+
+let add : Nat -> Nat -> Nat = \a b => elim Nat b succ a;
+
+let mul : Nat -> Nat -> Nat = \a b => elim Nat zero (add a) b;
+
+let exp : Nat -> Nat -> Nat = \a b => elim Nat (succ zero) (mul a) b;
+
+let two = succ (succ zero);
+
+let four = add two two;
+
+let eight = mul two four;
+
+let ten = add eight two;
+
+let twenty = mul two ten;
+
+exp two twenty
