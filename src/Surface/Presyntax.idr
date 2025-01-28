@@ -30,7 +30,7 @@ Show PTm where
   show (PLam n Nothing t) = "\\" ++ show n ++ " => " ++ show t
   show (PLam n (Just ty) t) = "\\(" ++ show n ++ " : " ++ show ty ++ ") => " ++ show t
   show (PApp f x) = "(" ++ show f ++ " " ++ show x ++ ")"
-  show (PPi n a b) = "(" ++ show n ++ " : " ++ show a ++ ") -> " ++ show b
+  show (PPi n a b) = "(" ++ show n ++ " : " ++ show a ++ ") -> (" ++ show b ++ ")"
   show (PLet n Nothing v t) = "let " ++ show n ++ " = " ++ show v ++ "; " ++ show t
   show (PLet n (Just ty) v t) = "let " ++ show n ++ " : " ++ show ty ++ " = " ++ show v ++ "; " ++ show t
   show PU = "U"
