@@ -20,6 +20,10 @@ error : String -> a
 error s = assert_total $ idris_crash s
 
 public export
+todo : a
+todo = error "Unimplemented"
+
+public export
 (.value) : {0 x : a} -> Singleton x -> a
 (.value) (Val x) = x
 

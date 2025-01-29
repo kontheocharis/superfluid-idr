@@ -14,7 +14,7 @@ import Core.Conversion
 import Core.Definitions
 
 public export
-data TcMode = Check  | Infer | Bind
+data TcMode = Check | Infer | Bind | Item
 
 public export
 data IsTmMode : TcMode -> Type where
@@ -26,6 +26,7 @@ isTmMode : (m : TcMode) -> Dec (IsTmMode m)
 isTmMode Check = Yes CheckIsTmMode
 isTmMode Infer = Yes InferIsTmMode
 isTmMode Bind = No (\case Refl impossible)
+isTmMode Item = No (\case Refl impossible)
 
 public export
 data TcError : Type where
@@ -63,15 +64,24 @@ data Typechecker : TypecheckerKind where
     => (Context gs ns bs -> m (STm gs ns, VTy gs bs))
     -> Typechecker m Infer (gs, ns, bs) (gs, ns, bs)
   InBind : (Tc m)
-    => (Context gs ns bs -> m (Context gs (ns ++ pns) (bs ++ pbs), STm gs (ns ++ pns), VTy gs (bs ++ pbs)))
+    => (Context gs ns bs -> m (
+          Context gs (ns ++ pns) (bs ++ pbs),
+          SPat gs (ns ++ pns), VTy gs (bs ++ pbs)
+        ))
     -> Typechecker m Bind (gs, ns, bs) (gs, ns ++ pns, bs ++ pbs)
+  InItem : (Tc m)
+    => (Context gs [<] [<] -> m (Context (gs :< g) [<] [<]))
+    -> Typechecker m Item (gs, [<], [<]) (gs :< g, [<], [<])
   InError : (Tc m)
     => ({0 a : Type} -> m a)
     -> Typechecker m md i i'
 
 public export
 convertOrError : (Tc m) => Context gs ns bs -> VTy gs bs -> VTy gs bs -> m ()
-convertOrError ctx a b = if convert ctx.local.bindsSize a b then pure () else tcError (Mismatch ctx.local.binds a b)
+convertOrError ctx a b =
+  if convert ctx.local.bindsSize a b
+    then pure ()
+    else tcError (Mismatch ctx.local.binds a b)
 
 public export
 switch : (Tc m) => Typechecker m Infer i i' -> Typechecker m Check i i'
@@ -82,7 +92,11 @@ switch (InInfer f) = InCheck $ \ctx => \ty => do
 switch (InError f) = InError f
 
 public export
-check : (Tc m) => {auto _ : IsTmMode md} -> Typechecker m md (gs, ns, bs) (gs', ns', bs') -> Context gs ns bs -> VTy gs bs -> m (STm gs ns)
+check : (Tc m) => {auto _ : IsTmMode md}
+  -> Typechecker m md (gs, ns, bs) (gs', ns', bs')
+  -> Context gs ns bs
+  -> VTy gs bs
+  -> m (STm gs ns)
 check (InCheck f) ctx ty = f ctx ty
 check (InInfer f) ctx ty = case switch (InInfer f) of
   InCheck f' => f' ctx ty
@@ -90,12 +104,17 @@ check (InInfer f) ctx ty = case switch (InInfer f) of
 check (InError f) ctx ty = f
 
 public export
-infer : (Tc m) => Typechecker m Infer (gs, ns, bs) (gs, ns, bs) -> Context gs ns bs -> m (STm gs ns, VTy gs bs)
+infer : (Tc m) => Typechecker m Infer (gs, ns, bs) (gs, ns, bs)
+  -> Context gs ns bs
+  -> m (STm gs ns, VTy gs bs)
 infer (InInfer f) ctx = f ctx
 infer (InError f) ctx = f
 
 public export
-run : (Tc m) => Typechecker m md (gs, ns, bs) (gs, ns, bs) -> Context gs ns bs -> TcModeInput md gs bs -> m (STm gs ns, VTy gs bs)
+run : (Tc m) => Typechecker m md (gs, ns, bs) (gs, ns, bs)
+  -> Context gs ns bs
+  -> TcModeInput md gs bs
+  -> m (STm gs ns, VTy gs bs)
 run (InCheck f) ctx (CheckInput ty) = f ctx ty >>= \t => pure (t, ty)
 run (InInfer f) ctx InferInput = f ctx
 run (InError f) ctx _ = f
@@ -216,3 +235,4 @@ caseOf : (Tc m)
   => (s : Typechecker m Infer (gs, ns, bs) (gs, ns, bs))
   -> IrrNameListN 2 (BranchTypechecker m md (gs, ns, bs))
   -> Typechecker m md (gs, ns, bs) (gs, ns, bs)
+caseOf = todo
