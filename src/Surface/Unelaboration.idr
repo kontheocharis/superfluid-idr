@@ -29,6 +29,7 @@ unelab ns (SGlob (MkGlobNameIn n _) sp) = pApps (PName n.name) (unelabSpine ns s
 unelab ns SU = PU
 
 public export
+partial covering
 (ns : Names) => Show (STm gs ns) where
   show t = show (unelab ns t)
 

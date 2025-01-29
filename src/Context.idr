@@ -33,7 +33,7 @@ Names = SnocList Name
 public export
 0 Named : Type -> Type
 Named t = (0 _ : Names) -> t
-
+  
 public export
 data Size : Named Type where
   SZ : Size Lin
@@ -107,10 +107,23 @@ Biinjective MkGlobName where
 public export
 DecEq (GlobName ps) where
   decEq (MkGlobName n k) (MkGlobName n' k') = decEqCong2 (decEq n n') (decEq k k')
+  
+public export
+0 WithIrrNamesN : (n : Nat) -> composeN n Named Type -> Type
+WithIrrNamesN 0 t = t
+WithIrrNamesN (S n) t = Exists (\ns => WithIrrNamesN n (t ns))
+  
+public export
+0 IrrNameListN : (n : Nat) -> composeN n Named Type -> Type
+IrrNameListN n t = SnocList (WithIrrNamesN n t)
+  
+public export
+0 NameList : Named Type -> Type
+NameList t = SnocList (DPair Names (\ns => t ns))
 
 public export
 0 GlobNames : Type
-GlobNames = SnocList (DPair Names (\ps => GlobName ps))
+GlobNames = NameList GlobName
 
 public export
 0 GlobNamed : Type -> Type

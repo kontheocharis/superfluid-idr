@@ -26,3 +26,8 @@ public export
 public export
 (.identity) : {0 x : a} -> (s : Singleton x) -> s.value = x
 (.identity) (Val y) = Refl
+
+public export
+composeN : Nat -> (a -> a) -> a -> a
+composeN Z f x = x
+composeN (S k) f x = f (composeN k f x)

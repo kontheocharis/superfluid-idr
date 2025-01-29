@@ -14,7 +14,18 @@ import Core.Conversion
 import Core.Definitions
 
 public export
-data TcMode = Check | Infer
+data TcMode = Check  | Infer | Bind
+
+public export
+data IsTmMode : TcMode -> Type where
+  CheckIsTmMode : IsTmMode Check
+  InferIsTmMode : IsTmMode Infer
+  
+public export
+isTmMode : (m : TcMode) -> Dec (IsTmMode m)
+isTmMode Check = Yes CheckIsTmMode
+isTmMode Infer = Yes InferIsTmMode
+isTmMode Bind = No (\case Refl impossible)
 
 public export
 data TcError : Type where
@@ -32,72 +43,115 @@ data TcModeInput : (0 _ : TcMode) -> GlobNamed (Named Type) where
   InferInput : TcModeInput Infer gs bs
 
 public export
-data Typechecker : (0 m : Type -> Type) -> (Tc m) => (0 _ : TcMode) -> GlobNamed (Named (Named Type)) where
-  Checker : (Tc m) => (Context gs ns bs -> VTy gs bs -> m (STm gs ns)) -> Typechecker m Check gs ns bs
-  Inferer : (Tc m) => (Context gs ns bs -> m (STm gs ns, VTy gs bs)) -> Typechecker m Infer gs ns bs
+0 ContextIndex : Type 
+ContextIndex = (GlobNames, Names, Names)
+
+public export
+0 TypecheckerKind : Type
+TypecheckerKind = (0 m : Type -> Type) -> (Tc m)
+  => (0 _ : TcMode)
+  -> ContextIndex
+  -> ContextIndex
+  -> Type
+
+public export
+data Typechecker : TypecheckerKind where
+  InCheck : (Tc m)
+    => (Context gs ns bs -> VTy gs bs -> m (STm gs ns))
+    -> Typechecker m Check (gs, ns, bs) (gs, ns, bs)
+  InInfer : (Tc m)
+    => (Context gs ns bs -> m (STm gs ns, VTy gs bs))
+    -> Typechecker m Infer (gs, ns, bs) (gs, ns, bs)
+  InBind : (Tc m)
+    => (Context gs ns bs -> m (Context gs (ns ++ pns) (bs ++ pbs), STm gs (ns ++ pns), VTy gs (bs ++ pbs)))
+    -> Typechecker m Bind (gs, ns, bs) (gs, ns ++ pns, bs ++ pbs)
+  InError : (Tc m)
+    => ({0 a : Type} -> m a)
+    -> Typechecker m md i i'
 
 public export
 convertOrError : (Tc m) => Context gs ns bs -> VTy gs bs -> VTy gs bs -> m ()
 convertOrError ctx a b = if convert ctx.local.bindsSize a b then pure () else tcError (Mismatch ctx.local.binds a b)
 
 public export
-switch : (Tc m) => Typechecker m Infer gs ns bs -> Typechecker m Check gs ns bs
-switch (Inferer f) = Checker $ \ctx => \ty => do
+switch : (Tc m) => Typechecker m Infer i i' -> Typechecker m Check i i'
+switch (InInfer f) = InCheck $ \ctx => \ty => do
   (t, ty') <- f ctx
   convertOrError ctx ty ty'
   pure t
+switch (InError f) = InError f
 
 public export
-check : (Tc m) => Typechecker m md gs ns bs -> Context gs ns bs -> VTy gs bs -> m (STm gs ns)
-check (Checker f) ctx ty = f ctx ty
-check (Inferer f) ctx ty = let Checker f' = switch (Inferer f) in f' ctx ty
+check : (Tc m) => {auto _ : IsTmMode md} -> Typechecker m md (gs, ns, bs) (gs', ns', bs') -> Context gs ns bs -> VTy gs bs -> m (STm gs ns)
+check (InCheck f) ctx ty = f ctx ty
+check (InInfer f) ctx ty = case switch (InInfer f) of
+  InCheck f' => f' ctx ty
+  InError f => f
+check (InError f) ctx ty = f
 
 public export
-infer : (Tc m) => Typechecker m Infer gs ns bs -> Context gs ns bs -> m (STm gs ns, VTy gs bs)
-infer (Inferer f) ctx = f ctx
+infer : (Tc m) => Typechecker m Infer (gs, ns, bs) (gs, ns, bs) -> Context gs ns bs -> m (STm gs ns, VTy gs bs)
+infer (InInfer f) ctx = f ctx
+infer (InError f) ctx = f
 
 public export
-run : (Tc m) => Typechecker m md gs ns bs -> Context gs ns bs -> TcModeInput md gs bs -> m (STm gs ns, VTy gs bs)
-run (Checker f) ctx (CheckInput ty) = f ctx ty >>= \t => pure (t, ty)
-run (Inferer f) ctx InferInput = f ctx
+run : (Tc m) => Typechecker m md (gs, ns, bs) (gs, ns, bs) -> Context gs ns bs -> TcModeInput md gs bs -> m (STm gs ns, VTy gs bs)
+run (InCheck f) ctx (CheckInput ty) = f ctx ty >>= \t => pure (t, ty)
+run (InInfer f) ctx InferInput = f ctx
+run (InError f) ctx _ = f
 
 public export
-mirror : (Tc m) => Typechecker m md gs ns bs -> (Context gs' ns' bs' -> TcModeInput md gs' bs' -> m (STm gs' ns', VTy gs' bs')) -> Typechecker m md gs' ns' bs'
-mirror (Checker _) k = Checker $ \ctx => \ty => do
+mirror : (Tc m) => {auto _ : IsTmMode md}
+  -> Typechecker m md (gs, ns, bs) (gs, ns, bs)
+  -> (Context gs' ns' bs' -> TcModeInput md gs' bs' -> m (STm gs' ns', VTy gs' bs'))
+  -> Typechecker m md (gs', ns', bs') (gs', ns', bs')
+mirror (InCheck _) k = InCheck $ \ctx => \ty => do
   (a, _) <- k ctx (CheckInput ty)
   pure a
-mirror (Inferer _) k = Inferer $ \ctx => k ctx InferInput
+mirror (InInfer _) k = InInfer $ \ctx => k ctx InferInput
+mirror (InError f) _ = InError f
 
 public export
-var : (Tc m) => Idx ns -> Typechecker m Infer gs ns bs
-var i = Inferer $ \ctx => case getIdx ctx.local i of
+var : (Tc m) => Idx ns -> Typechecker m Infer (gs, ns, bs) (gs, ns, bs)
+var i = InInfer $ \ctx => case getIdx ctx.local i of
     MkVTerm ty _ => pure (SVar i, ty)
 
 public export
-named : (Tc m) => Name -> Typechecker m Infer gs ns bs
-named n = Inferer $ \ctx => case lookupName ctx n of
+named : (Tc m) => Name -> Typechecker m Infer (gs, ns, bs) (gs, ns, bs)
+named n = InInfer $ \ctx => case lookupName ctx n of
     FoundLocal i (MkVTerm ty _) _ => pure (SVar i, ty)
     FoundItem ps g ty => pure (sLams ps (SGlob g (sHeres ctx.local.size ps.size)), ty)
     NotFound => tcError (NameNotFound n)
 
 public export
-lam : (Tc m) => (n : Name) -> Typechecker m md gs (ns :< n) (bs :< n) -> Typechecker m Check gs ns bs
-lam n f = Checker $ \ctx => \ty => case ty of
+lam : (Tc m) => {auto _ : IsTmMode md}
+  -> (n : Name)
+  -> (body : Typechecker m md (gs, ns :< n, bs :< n) (gs, ns :< n, bs :< n))
+  -> Typechecker m Check (gs, ns, bs) (gs, ns, bs)
+lam n f = InCheck $ \ctx => \ty => case ty of
   VPi n' a b => do
     t <- check f (mapLocal (\l => Bind l n a) ctx) (applyRen ctx.local.bindsSize b)
     pure (SLam n t)
   _ => tcError ExpectedPi
 
 public export
-typedLam : (Tc m) => (n : Name) -> Typechecker m md gs ns bs -> Typechecker m Infer gs (ns :< n) (bs :< n) -> Typechecker m Infer gs ns bs
-typedLam n a f = Inferer $ \ctx => do
+typedLam : (Tc m) => {auto _ : IsTmMode md}
+  -> (n : Name)
+  -> (argTy : Typechecker m md (gs, ns, bs) (gs, ns, bs))
+  -> (body : Typechecker m Infer (gs, ns :< n, bs :< n) (gs, ns :< n, bs :< n))
+  -> Typechecker m Infer (gs, ns, bs) (gs, ns, bs)
+typedLam n a f = InInfer $ \ctx => do
     a' <- check a ctx VU
     let va = eval ctx.local.env a'
     (t, b) <- infer f (mapLocal (\l => Bind l n va) ctx)
     pure (SLam n t, VPi n va (closeVal (idEnv {s = ctx.local.bindsSize}) b))
 
 public export
-letIn : (Tc m) => (n : Name) -> Typechecker m Infer gs ns bs -> Typechecker m md gs (ns :< n) bs -> Typechecker m md gs ns bs
+letIn : (Tc m) => {auto _ : IsTmMode md}
+  -> (n : Name)
+  -> (rhs : Typechecker m Infer (gs, ns, bs) (gs, ns, bs))
+  -> (rest : Typechecker m md (gs, ns :< n, bs) (gs, ns :< n, bs))
+  -> Typechecker m md (gs, ns, bs) (gs, ns, bs)
 letIn n a b = mirror b $ \ctx => \ret => do
   (a', ty) <- infer a ctx
   let va = eval ctx.local.env a'
@@ -105,7 +159,12 @@ letIn n a b = mirror b $ \ctx => \ret => do
   pure (SLet n a' b', ret')
 
 public export
-typedLetIn : (Tc m) => (n : Name) -> Typechecker m Check gs ns bs -> Typechecker m Check gs ns bs -> Typechecker m md gs (ns :< n) bs -> Typechecker m md gs ns bs
+typedLetIn : (Tc m) => {auto _ : IsTmMode md}
+  -> (n : Name)
+  -> (rhsTy : Typechecker m Check (gs, ns, bs) (gs, ns, bs))
+  -> (rhs : Typechecker m Check (gs, ns, bs) (gs, ns, bs))
+  -> (rest : Typechecker m md (gs, ns :< n, bs) (gs, ns :< n, bs))
+  -> Typechecker m md (gs, ns, bs) (gs, ns, bs)
 typedLetIn n ty a b = mirror b $ \ctx => \ret => do
   ty' <- check ty ctx VU
   let vty = eval ctx.local.env ty'
@@ -115,8 +174,11 @@ typedLetIn n ty a b = mirror b $ \ctx => \ret => do
   pure (SLet n a' b', ret')
 
 public export
-app : (Tc m) => Typechecker m Infer gs ns bs -> Typechecker m md gs ns bs -> Typechecker m Infer gs ns bs
-app f g = Inferer $ \ctx => do
+app : (Tc m) => {auto _ : IsTmMode md}
+  -> (fn : Typechecker m Infer (gs, ns, bs) (gs, ns, bs))
+  -> (arg : Typechecker m md (gs, ns, bs) (gs, ns, bs))
+  -> Typechecker m Infer (gs, ns, bs) (gs, ns, bs)
+app f g = InInfer $ \ctx => do
   (f', a) <- infer f ctx
   case a of
     VPi n a b => do
@@ -125,12 +187,32 @@ app f g = Inferer $ \ctx => do
     _ => tcError ExpectedPi
 
 public export
-pi : (Tc m) => (n : Name) -> Typechecker m md gs ns bs -> Typechecker m md' gs (ns :< n) (bs :< n) -> Typechecker m Infer gs ns bs
-pi n a b = Inferer $ \ctx => do
+pi : (Tc m) => {auto _ : IsTmMode md} -> {auto _ : IsTmMode md'}
+  -> (n : Name)
+  -> (dom : Typechecker m md (gs, ns, bs) (gs, ns, bs))
+  -> (cod : Typechecker m md' (gs, ns :< n, bs :< n) (gs, ns :< n, bs :< n))
+  -> Typechecker m Infer (gs, ns, bs) (gs, ns, bs)
+pi n a b = InInfer $ \ctx => do
   a' <- check a ctx VU
   b' <- check b (mapLocal (\l => Bind l n (eval l.env a')) ctx) VU
   pure (SPi n a' b', VU)
 
 public export
-u : (Tc m) => Typechecker m Infer gs ns bs
-u = Inferer $ \ctx => pure (SU, VU)
+u : (Tc m) => Typechecker m Infer (gs, ns, bs) (gs, ns, bs)
+u = InInfer $ \ctx => pure (SU, VU)
+
+public export
+0 BranchTypechecker : (0 m : Type -> Type) -> (Tc m)
+  => (0 _ : TcMode)
+  -> ContextIndex
+  -> Named (Named Type)
+BranchTypechecker m md (gs, ns, bs) pns pbs = (
+    Typechecker m Bind (gs, ns, bs) (gs, ns ++ pns, bs ++ pbs),
+    Typechecker m md (gs, ns ++ pns, bs ++ pbs) (gs, ns ++ pns, bs ++ pbs)
+  )
+
+public export
+caseOf : (Tc m)
+  => (s : Typechecker m Infer (gs, ns, bs) (gs, ns, bs))
+  -> IrrNameListN 2 (BranchTypechecker m md (gs, ns, bs))
+  -> Typechecker m md (gs, ns, bs) (gs, ns, bs)
