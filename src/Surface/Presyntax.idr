@@ -47,7 +47,7 @@ PClauses = List (List PPat, PTm)
 public export
 data PItem : Type where
   PDef : Name -> PTel -> PTy -> PTm -> PItem
-  PData : Name -> PTel -> PTy -> PClauses -> PItem
+  PData : Name -> PTel -> PTy -> PCtors -> PItem
   PPrim : Name -> PTel -> PTy -> PItem
 
 public export

@@ -25,7 +25,7 @@ data STm where
   SGlob : (n : GlobNameIn gs ps) -> Spine (STm gs) ps ns -> STm gs ns
 
 STy = STm
-  
+
 public export
 data IsPat : STm gs ns -> Type where
   SVarIsPat : IsPat (SVar i)
@@ -34,6 +34,15 @@ data IsPat : STm gs ns -> Type where
 public export
 0 SPat : GlobNamed (Named Type)
 SPat gs ns = Subset (STm gs ns) IsPat
+  
+isPat : (s : STm gs ns) -> Dec (IsPat s)
+isPat (SVar i) = Yes SVarIsPat
+isPat (SGlob n sp) = Yes SGlobIsPat
+isPat (SLam n t) = No (\case Refl impossible)
+isPat (SApp f n a) = No (\case Refl impossible)
+isPat (SPi n a b) = No (\case Refl impossible)
+isPat SU = No (\case Refl impossible)
+isPat (SLet n a b) = No (\case Refl impossible)
 
 namespace Tel
   public export

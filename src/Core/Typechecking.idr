@@ -75,6 +75,10 @@ data Typechecker : TypecheckerKind where
   InError : (Tc m)
     => ({0 a : Type} -> m a)
     -> Typechecker m md i i'
+    
+public export
+0 TmTypechecker : (0 m : Type -> Type) -> (Tc m) => (0 _ : TcMode) -> ContextIndex -> Type
+TmTypechecker m md i = Typechecker m md i i
 
 public export
 convertOrError : (Tc m) => Context gs ns bs -> VTy gs bs -> VTy gs bs -> m ()
@@ -111,7 +115,7 @@ infer (InInfer f) ctx = f ctx
 infer (InError f) ctx = f
 
 public export
-run : (Tc m) => Typechecker m md (gs, ns, bs) (gs, ns, bs)
+run : (Tc m) => TmTypechecker m md (gs, ns, bs)
   -> Context gs ns bs
   -> TcModeInput md gs bs
   -> m (STm gs ns, VTy gs bs)
@@ -121,9 +125,9 @@ run (InError f) ctx _ = f
 
 public export
 mirror : (Tc m) => {auto _ : IsTmMode md}
-  -> Typechecker m md (gs, ns, bs) (gs, ns, bs)
+  -> TmTypechecker m md (gs, ns, bs)
   -> (Context gs' ns' bs' -> TcModeInput md gs' bs' -> m (STm gs' ns', VTy gs' bs'))
-  -> Typechecker m md (gs', ns', bs') (gs', ns', bs')
+  -> TmTypechecker m md (gs', ns', bs') 
 mirror (InCheck _) k = InCheck $ \ctx => \ty => do
   (a, _) <- k ctx (CheckInput ty)
   pure a
@@ -131,12 +135,12 @@ mirror (InInfer _) k = InInfer $ \ctx => k ctx InferInput
 mirror (InError f) _ = InError f
 
 public export
-var : (Tc m) => Idx ns -> Typechecker m Infer (gs, ns, bs) (gs, ns, bs)
+var : (Tc m) => Idx ns -> TmTypechecker m Infer (gs, ns, bs)
 var i = InInfer $ \ctx => case getIdx ctx.local i of
     MkVTerm ty _ => pure (SVar i, ty)
 
 public export
-named : (Tc m) => Name -> Typechecker m Infer (gs, ns, bs) (gs, ns, bs)
+named : (Tc m) => Name -> TmTypechecker m Infer (gs, ns, bs)
 named n = InInfer $ \ctx => case lookupName ctx n of
     FoundLocal i (MkVTerm ty _) _ => pure (SVar i, ty)
     FoundItem ps g ty => pure (sLams ps (SGlob g (sHeres ctx.local.size ps.size)), ty)
@@ -145,8 +149,8 @@ named n = InInfer $ \ctx => case lookupName ctx n of
 public export
 lam : (Tc m) => {auto _ : IsTmMode md}
   -> (n : Name)
-  -> (body : Typechecker m md (gs, ns :< n, bs :< n) (gs, ns :< n, bs :< n))
-  -> Typechecker m Check (gs, ns, bs) (gs, ns, bs)
+  -> (body : TmTypechecker m md (gs, ns :< n, bs :< n))
+  -> TmTypechecker m Check (gs, ns, bs)
 lam n f = InCheck $ \ctx => \ty => case ty of
   VPi n' a b => do
     t <- check f (mapLocal (\l => Bind l n a) ctx) (applyRen ctx.local.bindsSize b)
@@ -156,9 +160,9 @@ lam n f = InCheck $ \ctx => \ty => case ty of
 public export
 typedLam : (Tc m) => {auto _ : IsTmMode md}
   -> (n : Name)
-  -> (argTy : Typechecker m md (gs, ns, bs) (gs, ns, bs))
-  -> (body : Typechecker m Infer (gs, ns :< n, bs :< n) (gs, ns :< n, bs :< n))
-  -> Typechecker m Infer (gs, ns, bs) (gs, ns, bs)
+  -> (argTy : TmTypechecker m md (gs, ns, bs))
+  -> (body : TmTypechecker m Infer (gs, ns :< n, bs :< n) )
+  -> TmTypechecker m Infer (gs, ns, bs) 
 typedLam n a f = InInfer $ \ctx => do
     a' <- check a ctx VU
     let va = eval ctx.local.env a'
@@ -168,9 +172,9 @@ typedLam n a f = InInfer $ \ctx => do
 public export
 letIn : (Tc m) => {auto _ : IsTmMode md}
   -> (n : Name)
-  -> (rhs : Typechecker m Infer (gs, ns, bs) (gs, ns, bs))
-  -> (rest : Typechecker m md (gs, ns :< n, bs) (gs, ns :< n, bs))
-  -> Typechecker m md (gs, ns, bs) (gs, ns, bs)
+  -> (rhs : TmTypechecker m Infer (gs, ns, bs))
+  -> (rest : TmTypechecker m md (gs, ns :< n, bs))
+  -> TmTypechecker m md (gs, ns, bs) 
 letIn n a b = mirror b $ \ctx => \ret => do
   (a', ty) <- infer a ctx
   let va = eval ctx.local.env a'
@@ -180,10 +184,10 @@ letIn n a b = mirror b $ \ctx => \ret => do
 public export
 typedLetIn : (Tc m) => {auto _ : IsTmMode md}
   -> (n : Name)
-  -> (rhsTy : Typechecker m Check (gs, ns, bs) (gs, ns, bs))
-  -> (rhs : Typechecker m Check (gs, ns, bs) (gs, ns, bs))
-  -> (rest : Typechecker m md (gs, ns :< n, bs) (gs, ns :< n, bs))
-  -> Typechecker m md (gs, ns, bs) (gs, ns, bs)
+  -> (rhsTy : TmTypechecker m Check (gs, ns, bs))
+  -> (rhs : TmTypechecker m Check (gs, ns, bs))
+  -> (rest : TmTypechecker m md (gs, ns :< n, bs))
+  -> TmTypechecker m md (gs, ns, bs) 
 typedLetIn n ty a b = mirror b $ \ctx => \ret => do
   ty' <- check ty ctx VU
   let vty = eval ctx.local.env ty'
@@ -194,9 +198,9 @@ typedLetIn n ty a b = mirror b $ \ctx => \ret => do
 
 public export
 app : (Tc m) => {auto _ : IsTmMode md}
-  -> (fn : Typechecker m Infer (gs, ns, bs) (gs, ns, bs))
-  -> (arg : Typechecker m md (gs, ns, bs) (gs, ns, bs))
-  -> Typechecker m Infer (gs, ns, bs) (gs, ns, bs)
+  -> (fn : TmTypechecker m Infer (gs, ns, bs))
+  -> (arg : TmTypechecker m md (gs, ns, bs))
+  -> TmTypechecker m Infer (gs, ns, bs) 
 app f g = InInfer $ \ctx => do
   (f', a) <- infer f ctx
   case a of
@@ -208,16 +212,16 @@ app f g = InInfer $ \ctx => do
 public export
 pi : (Tc m) => {auto _ : IsTmMode md} -> {auto _ : IsTmMode md'}
   -> (n : Name)
-  -> (dom : Typechecker m md (gs, ns, bs) (gs, ns, bs))
-  -> (cod : Typechecker m md' (gs, ns :< n, bs :< n) (gs, ns :< n, bs :< n))
-  -> Typechecker m Infer (gs, ns, bs) (gs, ns, bs)
+  -> (dom : TmTypechecker m md (gs, ns, bs))
+  -> (cod : TmTypechecker m md' (gs, ns :< n, bs :< n))
+  -> TmTypechecker m Infer (gs, ns, bs) 
 pi n a b = InInfer $ \ctx => do
   a' <- check a ctx VU
   b' <- check b (mapLocal (\l => Bind l n (eval l.env a')) ctx) VU
   pure (SPi n a' b', VU)
 
 public export
-u : (Tc m) => Typechecker m Infer (gs, ns, bs) (gs, ns, bs)
+u : (Tc m) => TmTypechecker m Infer (gs, ns, bs)
 u = InInfer $ \ctx => pure (SU, VU)
 
 public export
@@ -229,6 +233,20 @@ BranchTypechecker m md (gs, ns, bs) pns pbs = (
     Typechecker m Bind (gs, ns, bs) (gs, ns ++ pns, bs ++ pbs),
     Typechecker m md (gs, ns ++ pns, bs ++ pbs) (gs, ns ++ pns, bs ++ pbs)
   )
+  
+namespace TelTypechecker
+  public export
+  data TelTypechecker : (0 m : Type -> Type) -> (Tc m)
+    => (0 _ : TcMode)
+    -> ContextIndex
+    -> Named Type
+    where
+    Lin : (Tc m)
+      => TelTypechecker m md (gs, ns, bs) ps
+    (:<) : (Tc m)
+      => (c : TelTypechecker m md (gs, ns, bs) ps)
+      -> (p : (Name, Typechecker m md (gs, ns ++ ps, bs ++ ps) (gs, ns ++ ps, bs ++ ps)))
+      -> TelTypechecker m md (gs, ns, bs) ps
 
 public export
 caseOf : (Tc m)
@@ -236,3 +254,12 @@ caseOf : (Tc m)
   -> IrrNameListN 2 (BranchTypechecker m md (gs, ns, bs))
   -> Typechecker m md (gs, ns, bs) (gs, ns, bs)
 caseOf = todo
+
+public export
+defItem  : (Tc m)
+  => (n : Name)
+  -> (tel : TelTypechecker m Check (gs, ns, bs) ps)
+  -> (ty : TmTypechecker m Check (gs, ns, bs))
+  -> (tm : TmTypechecker m Infer (gs :< (ps ** MkGlobName n DataGlob), ns, bs))
+  -> Typechecker m Item (gs, [<], [<]) (gs :< (ps ** MkGlobName n DataGlob), [<], [<])
+defItem n tel ty tm = InItem $ \ctx => ?h1
