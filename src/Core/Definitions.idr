@@ -58,29 +58,29 @@ namespace DefItem
   record DefItem (0 sig : Sig gs) where
     constructor MkDefItem
     name : Name
-    ps : Names
+    {ps : Names}
     params : Tel (VTy gs) ps [<]
-    ty : VTy gs ps
-    tm : STm (gs :< (ps ** MkGlobName n DefGlob)) ps
+    ty : VTy gs ([<] ++ ps)
+    tm : Maybe (STm (gs :< (ps ** MkGlobName n DefGlob)) ps)
 
 namespace DataItem
   public export
   record DataItem (0 sig : Sig gs) where
     constructor MkDataItem
     name : Name
-    ps : Names
-    is : Names
+    {ps : Names}
+    {is : Names}
     params : Tel (VTy gs) ps [<]
-    indices : Tel (VTy gs) is ps
+    indices : Tel (VTy gs) is ([<] ++ ps)
 
 namespace CtorItem
   public export
   record CtorItem {0 sig : Sig gs} {d : DataItem sig'} (di : ItemIn sig (Data' d)) where
     constructor MkCtorItem
     name : Name
-    as : Names
-    args : Tel (VTy gs) as d.ps
-    rets : Spine (VTm gs) d.is (d.ps ++ as)
+    {as : Names}
+    args : Tel (VTy gs) as ([<] ++ d.ps)
+    rets : Spine (VTm gs) d.is (([<] ++ d.ps) ++ as)
 
 namespace PrimItem
   public export
@@ -89,7 +89,7 @@ namespace PrimItem
     name : Name
     ps : Names
     params : Tel (VTy gs) ps [<]
-    ty : VTy gs ps
+    ty : VTy gs ([<] ++ ps)
 
 public export
 (.name) : Item sig -> Name
@@ -166,6 +166,16 @@ mapLocal : (Ctx gs ns bs -> Ctx gs ns' bs') -> Context gs ns bs -> Context gs ns
 mapLocal f c = MkContext c.global (f c.local)
 
 public export
+[globWeakenCtx] GlobWeaken (\gs => \ns => Ctx gs ns bs) where
+  globWeaken Lin = Lin
+  globWeaken (Bind ctx n ty) = Bind (globWeaken @{globWeakenCtx} ctx) n (globWeaken ty)
+  globWeaken (Def ctx n ty tm) = Def (globWeaken @{globWeakenCtx} ctx) n (globWeaken ty) (globWeaken tm)
+
+public export
+extendGlobal : (Sig gs -> Sig (gs :< g)) -> Context gs ns bs -> Context (gs :< g) ns bs
+extendGlobal f (MkContext sig ctx) = MkContext (f sig) (globWeaken @{globWeakenCtx} ctx)
+
+public export
 (.binds) : Ctx gs ns bs -> Singleton bs
 (.binds) Lin = Val [<]
 (.binds) (Bind ctx n _) = let Val bs = ctx.binds in Val $ bs :< n
@@ -218,16 +228,16 @@ lookupLocal ctx@(Def ctx' n ty tm) m = case decEq n m of
 
 public export
 itemTy : {sig : Sig us} -> Item sig -> VTy us [<]
-itemTy (Def d) = vPis SZ d.params (rewrite appendLinLeftNeutral d.ps in d.ty)
-itemTy (Data d) = vPis SZ d.params (rewrite appendLinLeftNeutral d.ps in vPis d.params.size d.indices VU)
-itemTy (Prim p) = vPis SZ p.params (rewrite appendLinLeftNeutral p.ps in p.ty)
+itemTy (Def d) = vPis SZ d.params d.ty
+itemTy (Data d) = vPis SZ d.params (vPis (SZ + d.params.size) d.indices VU)
+itemTy (Prim p) = vPis SZ p.params p.ty
 itemTy (Ctor {di = di} c) = case getDataItem di of
   Val d =>
-    let params = globWeakenByItem @{globWeakenForTel} di d.params
-         ++ (rewrite appendLinLeftNeutral d.ps in c.args) in
+    let params = globWeakenByItem @{globWeakenForTel} di d.params ++ c.args in
     let paramSp = weakenN c.args.size (vHeres SZ d.params.size) in
-    let ret = paramSp ++ rewrite appendLinLeftNeutral d.ps in c.rets in
-    vPis SZ params (vGlob di (rewrite appendAssociative [<] d.ps c.as in ret))
+    let ret = paramSp ++ c.rets in
+    ?h1
+    -- vPis SZ params (vGlob di ret)
 
 public export
 lookupItem : Size bs -> Sig gs -> (n : Name) -> Maybe (DPair Names (\ps => (GlobNameIn gs ps, VTy gs bs)))

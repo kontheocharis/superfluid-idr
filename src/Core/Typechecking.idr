@@ -2,6 +2,7 @@ module Core.Typechecking
 
 import Data.DPair
 import Decidable.Equality
+import Data.SnocList
 import Data.SnocList.Elem
 import Data.Singleton
 
@@ -242,11 +243,22 @@ namespace TelTypechecker
     -> Named Type
     where
     Lin : (Tc m)
-      => TelTypechecker m md (gs, ns, bs) ps
+      => TelTypechecker m md (gs, ns, bs) [<]
     (:<) : (Tc m)
       => (c : TelTypechecker m md (gs, ns, bs) ps)
       -> (p : (Name, Typechecker m md (gs, ns ++ ps, bs ++ ps) (gs, ns ++ ps, bs ++ ps)))
-      -> TelTypechecker m md (gs, ns, bs) ps
+      -> TelTypechecker m md (gs, ns, bs) (ps :< fst p)
+      
+tel : (Tc m) => {auto _ : IsTmMode md}
+  -> TelTypechecker m md (gs, ns, bs) ps
+  -> Context gs ns bs
+  -> m (Context gs (ns ++ ps) (bs ++ ps), Tel (VTy gs) ps bs)
+tel [<] ctx = pure (ctx, [<])
+tel ((:<) ts (n, t)) ctx = do
+  (ctx', ts') <- tel ts ctx
+  t' <- check t ctx' VU
+  let vty = eval ctx'.local.env t'
+  pure (mapLocal (\l => Bind l n vty) ctx', ts' :< (n, vty))
 
 public export
 caseOf : (Tc m)
@@ -258,8 +270,14 @@ caseOf = todo
 public export
 defItem  : (Tc m)
   => (n : Name)
-  -> (tel : TelTypechecker m Check (gs, ns, bs) ps)
-  -> (ty : TmTypechecker m Check (gs, ns, bs))
-  -> (tm : TmTypechecker m Infer (gs :< (ps ** MkGlobName n DataGlob), ns, bs))
+  -> (params : TelTypechecker m Check (gs, [<], [<]) ps)
+  -> (ty : TmTypechecker m Check (gs, [<] ++ ps, [<] ++ ps))
+  -> (tm : TmTypechecker m Infer (gs :< (ps ** MkGlobName n DataGlob), [<] ++ ps, [<] ++ ps))
   -> Typechecker m Item (gs, [<], [<]) (gs :< (ps ** MkGlobName n DataGlob), [<], [<])
-defItem n tel ty tm = InItem $ \ctx => ?h1
+defItem n params ty tm = InItem $ \ctx => do
+  (ctx', params') <- tel params ctx
+  ty' <- check ty ctx' VU
+  let vty = eval ctx'.local.env ty'
+  -- let i = MkDefItem n {ps = ?h43} params' vty Nothing
+  tm' <- check tm (extendGlobal (\sig => ?h2) ctx') (globWeaken vty)
+  ?h4
