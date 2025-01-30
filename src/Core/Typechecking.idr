@@ -13,6 +13,7 @@ import Core.Values
 import Core.Evaluation
 import Core.Conversion
 import Core.Definitions
+import Core.Weakening
 
 public export
 data TcMode = Check | Infer | Bind | Item | Trivial

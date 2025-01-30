@@ -7,6 +7,7 @@ import Surface.Presyntax
 import Core.Syntax
 import Core.Values
 import Core.Evaluation
+import Core.Weakening
 import Core.Typechecking
 
 import Data.DPair
@@ -73,9 +74,9 @@ elabItem (PData n pr ty cs) = ?elabPData
 
 public export
 elabSig : (Elab m) => PSig -> m (Exists (\gs => Sig gs))
-elabSig [<] = pure $ Evidence _ Lin
-elabSig (sig :< it) = do 
-  Evidence _ sig' <- elabSig sig
+elabSig (MkPSig [<]) = pure $ Evidence _ Lin
+elabSig (MkPSig (sig :< it)) = do 
+  Evidence _ sig' <- elabSig (MkPSig sig)
   Evidence _ it' <- elabSig' it sig'
   pure $ Evidence _ (sig' ++ it')
   where

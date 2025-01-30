@@ -90,35 +90,3 @@ public export
 (.size) : Tel f ps ns -> Size ps
 (.size) [<] = SZ
 (.size) (xs :< _) = SS (xs.size)
-
-public export
-GlobWeaken STm
-
-public export
-globWeakenSpine : (GlobWeaken f) => Spine (f gs) ps ns -> Spine (f (gs :< g)) ps ns
-globWeakenSpine Lin = Lin
-globWeakenSpine (sp :< t) = globWeakenSpine sp :< globWeaken t
-
-public export
-globWeakenTel : (GlobWeaken f) => Tel (f gs) ps ns -> Tel (f (gs :< g)) ps ns
-globWeakenTel Lin = Lin
-globWeakenTel (sp :< (n, t)) = globWeakenTel sp :< (n, globWeaken t)
-
-public export
-[globWeakenForSpine] GlobWeaken f => GlobWeaken (\gs => Spine (f gs) ps) where
-  globWeaken = globWeakenSpine
-
-public export
-[globWeakenForTel] GlobWeaken f => GlobWeaken (\gs => Tel (f gs) ps) where
-  globWeaken = globWeakenTel
-
-public export
-GlobWeaken STm where
-  globWeaken (SVar i) = SVar i
-  globWeaken (SLam n t) = SLam n (globWeaken t)
-  globWeaken (SApp f n a) = SApp (globWeaken f) n (globWeaken a)
-  globWeaken (SPi n a b) = SPi n (globWeaken a) (globWeaken b)
-  globWeaken SU = SU
-  globWeaken (SLet n a b) = SLet n (globWeaken a) (globWeaken b)
-  globWeaken (SGlob n sp) = SGlob (globWeaken n) (globWeakenSpine sp)
-

@@ -59,8 +59,9 @@ public export
 (.name) (PPrim n _ _) = MkGlobName n PrimGlob
 
 public export
-0 PSig : Type
-PSig = SnocList PItem
+record PSig where
+  constructor MkPSig
+  actual : SnocList PItem
 
 public export
 pApps : PTm -> SnocList PTm -> PTm
@@ -81,7 +82,8 @@ indented s = lines s |> map (\l => "  " ++ l) |> joinBy "\n"
 public export
 covering
 Show PTel where
-  show (MkPTel ts) = map (\(n, t) => show n ++ " : " ++ show t) ts |> cast |> joinBy " "
+  show (MkPTel [<]) = ""
+  show (MkPTel ts) = " " ++ (map (\(n, t) => show n ++ " : " ++ show t) ts |> cast |> joinBy " ")
 
 public export
 covering
@@ -96,9 +98,16 @@ Show PFields where
 public export
 covering
 Show PItem where
-  show (PDef n tel ty tm) = "def " ++ show n ++ " " ++ show tel ++ " : " ++ show ty ++ " = " ++ show tm
-  show (PData n tel ty cs) = "data " ++ show n ++ " " ++ show tel ++ " : " ++ show ty ++ " {" ++ indented (show cs) ++ "}"
-  show (PPrim n tel ty) = "prim " ++ show n ++ " " ++ show tel ++ " : " ++ show ty
+  show (PDef n tel ty tm) = "def " ++ show n ++ show tel ++ " : " ++ show ty ++ " = " ++ show tm
+  show (PData n tel ty cs) = "data " ++ show n ++ show tel ++ " : " ++ show ty ++ " {" ++ indented (show cs) ++ "}"
+  show (PPrim n tel ty) = "prim " ++ show n ++ show tel ++ " : " ++ show ty
+  
+public export
+covering
+Show PSig where
+  show (MkPSig [<]) = ""
+  show (MkPSig [< it]) = show it
+  show (MkPSig (sig :< it)) = show (MkPSig sig) ++ "\n\n" ++ show it
   
 covering
 Show PTm where

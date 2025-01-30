@@ -6,6 +6,7 @@ import Common
 import Context
 import Core.Syntax
 import Core.Values
+import Core.Weakening
 
 public export
 eval : Env gs n m -> STm gs m -> VTm gs n

@@ -17,6 +17,7 @@ data ParseError : Type where
   Empty : ParseError
   EndOfInput : ParseError
   UnexpectedChar : Char -> ParseError
+  ReservedWord : String -> ParseError
 
 public export
 Show ParseError where
@@ -24,6 +25,7 @@ Show ParseError where
   show Empty = "Empty input"
   show EndOfInput = "Unexpected end of input"
   show (UnexpectedChar c) = "Unexpected character: " ++ show c
+  show (ReservedWord s) = "Reserved word: " ++ s
 
 public export
 record Parser (a : Type) where
@@ -125,11 +127,17 @@ curlies p = between (symbol "{") (symbol "}") p
 
 -- Actual language:
 
+reserved : List String
+reserved = ["data", "def", "prim", "let", "case", "U"]
+
 ident : Parser String
 ident = do
   c <- satisfy isAlpha
   cs <- many $ satisfy (\c => isAlphaNum c || c == '-' || c == '_')
-  pure $ pack (c :: cs)
+  let n = pack (c :: cs)
+  if n `elem` reserved
+    then fail $ ReservedWord n
+    else pure n
 
 public export
 tm : Parser PTm
@@ -249,7 +257,7 @@ item = dataItem <|> defItem <|> primItem
 
 public export
 sig : Parser PSig
-sig = cast <$> many item
+sig = MkPSig <$> cast <$> many item
 
 public export
 parse : Parser a -> String -> Either ParseError a
