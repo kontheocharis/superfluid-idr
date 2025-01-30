@@ -29,8 +29,8 @@ Elab IO where
     putStrLn $ "  " ++ show err
     exitWith (ExitFailure 1)
     
-checkProgram : String -> IO ()
-checkProgram s = do
+processProgram : String -> IO ()
+processProgram s = do
   Right parsed <- pure $ parse sig s
     | Left err => do
         putStrLn "Parse error:"
@@ -62,7 +62,7 @@ processFile filename = do
     | Left err => do
         putStrLn $ "Error reading file: " ++ show err
         exitWith (ExitFailure 1)
-  processTerm content
+  processProgram content
 
 showUsage : IO ()
 showUsage = do

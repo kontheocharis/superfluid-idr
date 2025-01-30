@@ -128,8 +128,8 @@ Weaken (VTm gs) where
   weaken VU = VU
   weaken (VGlob n sp) = VGlob n (weaken sp)
 
-public export
-[globWeakenForVTm] GlobWeaken VTm where
+public export covering
+GlobWeaken VTm where
   globWeaken (VLam n cl) = VLam n (globWeakenClosure cl)
   globWeaken (VRigid i sp) = VRigid i (globWeakenSpine sp)
   globWeaken (VPi n a cl) = VPi n (globWeaken a) (globWeakenClosure cl)

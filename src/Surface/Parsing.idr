@@ -148,8 +148,8 @@ param = atom . parens $ do
 
 tel : Parser PTel
 tel = do 
-  ps <- many1 param
-  pure $ MkPTel (cast ps.fst)
+  ps <- many param
+  pure $ MkPTel (cast ps)
 
 fields : Parser PFields
 fields = do 
@@ -163,7 +163,7 @@ fields = do
 lam : Parser PTm
 lam = atom $ do
   symbol "\\"
-  ns <- (Left <$> tel) <|> (Right <$> many1 name)
+  ns <- (Right <$> many1 name) <|> (Left <$> tel)
   symbol "=>"
   t <- tm
   case ns of
@@ -178,7 +178,7 @@ app = atom $ do
 
 pi : Parser PTm
 pi = atom $ do
-  ns <- tel <|> (singleTm >>= \t => pure (MkPTel (cast [(MkName "_", t)])))
+  ns <- (singleTm >>= \t => pure (MkPTel (cast [(MkName "_", t)]))) <|> tel
   symbol "->"
   t <- tm
   pure $ foldr (\(n, ty) => \t => PPi n ty t) t ns.actual

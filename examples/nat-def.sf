@@ -1,0 +1,2 @@
+
+def Nat : U = (A : U) (a : A) (f : A -> A) -> A
