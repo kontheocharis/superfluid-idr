@@ -157,6 +157,7 @@ lam n f = InCheck $ \ctx => \ty => case ty of
     t <- check f (mapLocal (\l => Bind l n a) ctx) (applyRen ctx.local.bindsSize b)
     pure (SLam n t)
   _ => tcError ExpectedPi
+  
 
 public export
 typedLam : (Tc m) => {auto _ : IsTmMode md}
@@ -259,25 +260,33 @@ tel ((:<) ts (n, t)) ctx = do
   t' <- check t ctx' VU
   let vty = eval ctx'.local.env t'
   pure (mapLocal (\l => Bind l n vty) ctx', ts' :< (n, vty))
+  
+tel' : (Tc m) => {auto _ : IsTmMode md}
+  -> TelTypechecker m md (gs, [<], [<]) ps
+  -> Context gs [<] [<]
+  -> m (Context gs ps ps, Tel (VTy gs) ps [<])
+tel' ts ctx = do
+  (ctx', te) <- tel ts ctx
+  pure (apLeftMMRR {f = Context} ctx', te)
 
 public export
 caseOf : (Tc m)
   => (s : Typechecker m Infer (gs, ns, bs) (gs, ns, bs))
   -> IrrNameListN 2 (BranchTypechecker m md (gs, ns, bs))
   -> Typechecker m md (gs, ns, bs) (gs, ns, bs)
-caseOf = todo
+caseOf = ?caseOfImpl
 
 public export
-defItem  : (Tc m)
+defItem : (Tc m)
   => (n : Name)
   -> (params : TelTypechecker m Check (gs, [<], [<]) ps)
-  -> (ty : TmTypechecker m Check (gs, [<] ++ ps, [<] ++ ps))
-  -> (tm : TmTypechecker m Infer (gs :< (ps ** MkGlobName n DataGlob), [<] ++ ps, [<] ++ ps))
-  -> Typechecker m Item (gs, [<], [<]) (gs :< (ps ** MkGlobName n DataGlob), [<], [<])
+  -> (ty : TmTypechecker m Check (gs, ps, ps))
+  -> (tm : TmTypechecker m Infer (gs :< (ps ** MkGlobName n DefGlob), ps, ps))
+  -> Typechecker m Item (gs, [<], [<]) (gs :< (ps ** MkGlobName n DefGlob), [<], [<])
 defItem n params ty tm = InItem $ \ctx => do
-  (ctx', params') <- tel params ctx
+  (ctx', params') <- tel' params ctx
   ty' <- check ty ctx' VU
   let vty = eval ctx'.local.env ty'
-  -- let i = MkDefItem n {ps = ?h43} params' vty Nothing
-  tm' <- check tm (extendGlobal (\sig => ?h2) ctx') (globWeaken vty)
-  ?h4
+  let Val ps = ctx'.local.names
+  tm' <- check tm (extendGlobal (\sig => sig :< Def (MkDefItem n {ps = ps} params' vty Nothing)) ctx') (globWeaken vty)
+  pure (extendGlobal (\sig => sig :< Def (MkDefItem n params' vty (Just tm'))) ctx)

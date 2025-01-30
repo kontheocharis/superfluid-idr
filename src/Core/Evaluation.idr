@@ -81,3 +81,7 @@ public export
 vPis : Size ns -> Tel (VTm gs) ps ns -> VTm gs (ns ++ ps) -> VTm gs ns
 vPis nss [<] b = b
 vPis nss (as :< (n, a)) b = vPis nss as (VPi n a (closeVal (growEnvN nss as.size idEnv) b))
+
+public export
+vPis' : Tel (VTm gs) ps [<] -> VTm gs ps -> VTm gs [<]
+vPis' as b = vPis SZ as (rewrite appendLinLeftNeutral ps in b)

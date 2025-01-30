@@ -3,6 +3,7 @@ module Core.Values
 import Data.SnocList
 import Data.DPair
 import Data.SnocList.Elem
+import Data.SnocList
 
 import Common
 import Context
@@ -88,6 +89,11 @@ weakenSpine [<] = [<]
 weakenSpine (xs :< x) = weakenSpine xs :< weaken x
 
 public export
+weakenTel : Tel (VTm gs) ps ns -> Tel (VTm gs) ps (ns :< n)
+weakenTel [<] = [<]
+weakenTel (xs :< (m, x)) = weakenTel xs :< (m, ?h1)
+
+public export
 Weaken (\ns => Env gs ns ms) where
   weaken = weakenEnv
 
@@ -98,6 +104,10 @@ GlobWeaken (\gs => \ns => Env gs ns ms) where
 public export
 Weaken (\ns => Spine (VTm gs) ps ns) where
   weaken = weakenSpine
+
+public export
+Weaken (\ns => Tel (VTm gs) ps ns) where
+  weaken = weakenTel
 
 public export
 Weaken (Closure gs n) where
@@ -144,3 +154,8 @@ public export
 vHeres : Size ns -> Size ps -> Spine (VTm gs) ps (ns ++ ps)
 vHeres n SZ = [<]
 vHeres n (SS r) = weaken (vHeres n r) :< VVar (lastLvl (n + r))
+
+public export
+vHeres' : Size ps -> Spine (VTm gs) ps ps
+vHeres' SZ = [<]
+vHeres' (SS r) = weaken (vHeres' r) :< VVar (lastLvl r)

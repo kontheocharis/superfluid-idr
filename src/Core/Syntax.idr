@@ -54,6 +54,13 @@ namespace Tel
   (++) : Tel f' ps' ns' -> Tel f' qs' (ns' ++ ps') -> Tel f' (ps' ++ qs') ns'
   (++) te [<] = te
   (++) te ((:<) {ps = ps} te' (n, t)) = (te ++ te') :< (n, rewrite appendAssociative ns' ps' ps in t)
+  
+  export infixr 5 ++.
+
+  public export
+  (++.) : Tel f ps [<] -> Tel f qs ps -> Tel f (ps ++ qs) [<]
+  (++.) a b = a ++ (rewrite appendLinLeftNeutral ps in b)
+
 
 namespace Spine
   data Spine where
@@ -64,6 +71,7 @@ namespace Spine
   (++) : Spine f' ps' ns' -> Spine f' qs' ns' -> Spine f' (ps' ++ qs') ns'
   (++) te [<] = te
   (++) te ((:<) {ps = ps} te' t) = (te ++ te') :< t
+
 
 public export
 Con : (Named Type) -> Named Type

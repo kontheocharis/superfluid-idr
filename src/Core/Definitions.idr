@@ -60,8 +60,8 @@ namespace DefItem
     name : Name
     {ps : Names}
     params : Tel (VTy gs) ps [<]
-    ty : VTy gs ([<] ++ ps)
-    tm : Maybe (STm (gs :< (ps ** MkGlobName n DefGlob)) ps)
+    ty : VTy gs ps
+    tm : Maybe (STm (gs :< (ps ** MkGlobName name DefGlob)) ps)
 
 namespace DataItem
   public export
@@ -71,7 +71,7 @@ namespace DataItem
     {ps : Names}
     {is : Names}
     params : Tel (VTy gs) ps [<]
-    indices : Tel (VTy gs) is ([<] ++ ps)
+    indices : Tel (VTy gs) is ( ps)
 
 namespace CtorItem
   public export
@@ -79,8 +79,8 @@ namespace CtorItem
     constructor MkCtorItem
     name : Name
     {as : Names}
-    args : Tel (VTy gs) as ([<] ++ d.ps)
-    rets : Spine (VTm gs) d.is (([<] ++ d.ps) ++ as)
+    args : Tel (VTy gs) as d.ps
+    rets : Spine (VTm gs) d.is (d.ps ++ as)
 
 namespace PrimItem
   public export
@@ -89,7 +89,7 @@ namespace PrimItem
     name : Name
     ps : Names
     params : Tel (VTy gs) ps [<]
-    ty : VTy gs ([<] ++ ps)
+    ty : VTy gs ( ps)
 
 public export
 (.name) : Item sig -> Name
@@ -228,16 +228,16 @@ lookupLocal ctx@(Def ctx' n ty tm) m = case decEq n m of
 
 public export
 itemTy : {sig : Sig us} -> Item sig -> VTy us [<]
-itemTy (Def d) = vPis SZ d.params d.ty
-itemTy (Data d) = vPis SZ d.params (vPis (SZ + d.params.size) d.indices VU)
-itemTy (Prim p) = vPis SZ p.params p.ty
+itemTy (Def d) = vPis' d.params d.ty
+itemTy (Data d) = vPis' d.params (vPis d.params.size d.indices VU)
+itemTy (Prim p) = vPis' p.params p.ty
 itemTy (Ctor {di = di} c) = case getDataItem di of
   Val d =>
-    let params = globWeakenByItem @{globWeakenForTel} di d.params ++ c.args in
-    let paramSp = weakenN c.args.size (vHeres SZ d.params.size) in
-    let ret = paramSp ++ c.rets in
-    ?h1
-    -- vPis SZ params (vGlob di ret)
+    let binds = (globWeakenByItem @{globWeakenForTel} di d.params) ++. c.args in
+    let paramSp = vHeres' d.params.size in
+    let retSp = weakenN c.args.size paramSp ++ c.rets in
+    let ret = vGlob di retSp in
+    vPis' binds ret
 
 public export
 lookupItem : Size bs -> Sig gs -> (n : Name) -> Maybe (DPair Names (\ps => (GlobNameIn gs ps, VTy gs bs)))
