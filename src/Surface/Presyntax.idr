@@ -3,6 +3,8 @@ module Surface.Presyntax
 import Common
 import Context
 import Data.String
+import Data.SnocList
+import Data.DPair
 
 public export
 data PTm : Type
@@ -18,12 +20,12 @@ PPat = PTm
 public export
 record PTel where
   constructor MkPTel
-  actual : List (Name, PTy)
+  actual : SnocList (Name, PTy)
 
 public export
 record PBranches where
   constructor MkPBranches
-  actual : List (PPat, PTm)
+  actual : SnocList (PPat, PTm)
 
 public export
 data PTm : Type where
@@ -36,28 +38,39 @@ data PTm : Type where
   PCase : PTm -> PBranches -> PTm
   
 public export
-record PCtors where
-  constructor MkPCtors
+record PFields where
+  constructor MkPFields
   actual : PTel
 
 public export
 0 PClauses : Type
-PClauses = List (List PPat, PTm)
+PClauses = SnocList (SnocList PPat, PTm)
 
 public export
 data PItem : Type where
   PDef : Name -> PTel -> PTy -> PTm -> PItem
-  PData : Name -> PTel -> PTy -> PCtors -> PItem
+  PData : Name -> PTel -> PTy -> PFields -> PItem
   PPrim : Name -> PTel -> PTy -> PItem
+  
+public export
+(.name) : PItem -> GlobName ps
+(.name) (PDef n _ _ _) = MkGlobName n DefGlob
+(.name) (PData n _ _ _) = MkGlobName n DataGlob
+(.name) (PPrim n _ _) = MkGlobName n PrimGlob
 
 public export
 0 PSig : Type
-PSig = List PItem
+PSig = SnocList PItem
 
 public export
 pApps : PTm -> SnocList PTm -> PTm
 pApps f [<] = f
 pApps f (xs :< x) = PApp (pApps f xs) x
+
+public export
+pPis : PTel -> PTy -> PTy
+pPis (MkPTel [<]) b = b
+pPis (MkPTel (ts :< (n, a))) b = pPis (MkPTel ts) (PPi n a b)
 
 public export
 Show PTm
@@ -68,17 +81,17 @@ indented s = lines s |> map (\l => "  " ++ l) |> joinBy "\n"
 public export
 covering
 Show PTel where
-  show (MkPTel ts) = map (\(n, t) => show n ++ " : " ++ show t) ts |> joinBy " "
+  show (MkPTel ts) = map (\(n, t) => show n ++ " : " ++ show t) ts |> cast |> joinBy " "
 
 public export
 covering
 Show PBranches where
-  show (MkPBranches bs) = map (\(p, t) => show p ++ " => " ++ show t) bs |> joinBy ",\n"
+  show (MkPBranches bs) = map (\(p, t) => show p ++ " => " ++ show t) bs |> cast |> joinBy ",\n"
   
 public export
 covering
-Show PCtors where
-  show (MkPCtors cs) = map (\(ps, t) => show ps ++ " => " ++ show t) cs.actual |> joinBy ";\n" 
+Show PFields where
+  show (MkPFields cs) = map (\(n, t) => show n ++ " : " ++ show t) cs.actual |> cast |> joinBy ",\n" 
 
 public export
 covering

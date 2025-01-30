@@ -15,7 +15,7 @@ import Core.Conversion
 import Core.Definitions
 
 public export
-data TcMode = Check | Infer | Bind | Item
+data TcMode = Check | Infer | Bind | Item | Trivial
 
 public export
 data IsTmMode : TcMode -> Type where
@@ -26,6 +26,7 @@ public export
 isTmMode : (m : TcMode) -> Dec (IsTmMode m)
 isTmMode Check = Yes CheckIsTmMode
 isTmMode Infer = Yes InferIsTmMode
+isTmMode Trivial = No (\case Refl impossible)
 isTmMode Bind = No (\case Refl impossible)
 isTmMode Item = No (\case Refl impossible)
 
@@ -58,6 +59,7 @@ TypecheckerKind = (0 m : Type -> Type) -> (Tc m)
 
 public export
 data Typechecker : TypecheckerKind where
+  InTrivial : (Tc m) => Typechecker m Trivial i i
   InCheck : (Tc m)
     => (Context gs ns bs -> VTy gs bs -> m (STm gs ns))
     -> Typechecker m Check (gs, ns, bs) (gs, ns, bs)
@@ -95,9 +97,10 @@ switch (InInfer f) = InCheck $ \ctx => \ty => do
   convertOrError ctx ty ty'
   pure t
 switch (InError f) = InError f
+switch InTrivial impossible
 
 public export
-check : (Tc m) => {auto _ : IsTmMode md}
+check : (Tc m) => {auto t : IsTmMode md}
   -> Typechecker m md (gs, ns, bs) (gs', ns', bs')
   -> Context gs ns bs
   -> VTy gs bs
@@ -107,6 +110,7 @@ check (InInfer f) ctx ty = case switch (InInfer f) of
   InCheck f' => f' ctx ty
   InError f => f
 check (InError f) ctx ty = f
+check InTrivial impossible
 
 public export
 infer : (Tc m) => Typechecker m Infer (gs, ns, bs) (gs, ns, bs)
@@ -114,6 +118,11 @@ infer : (Tc m) => Typechecker m Infer (gs, ns, bs) (gs, ns, bs)
   -> m (STm gs ns, VTy gs bs)
 infer (InInfer f) ctx = f ctx
 infer (InError f) ctx = f
+
+public export
+globally : (Tc m) => Typechecker m Item (gs, ns, bs) (gs', ns', bs') -> Context gs ns bs -> m (Context gs' ns' bs')
+globally (InItem f) ctx = f ctx
+globally (InError f) ctx = f
 
 public export
 run : (Tc m) => TmTypechecker m md (gs, ns, bs)
@@ -288,5 +297,19 @@ defItem n params ty tm = InItem $ \ctx => do
   ty' <- check ty ctx' VU
   let vty = eval ctx'.local.env ty'
   let Val ps = ctx'.local.names
-  tm' <- check tm (extendGlobal (\sig => sig :< Def (MkDefItem n {ps = ps} params' vty Nothing)) ctx') (globWeaken vty)
+  tm' <- check tm (extendGlobal (\sig => sig :< Def (MkDefItem n params' vty Nothing)) ctx') (globWeaken vty)
   pure (extendGlobal (\sig => sig :< Def (MkDefItem n params' vty (Just tm'))) ctx)
+
+public export
+primItem : (Tc m)
+  => (n : Name)
+  -> (params : TelTypechecker m Check (gs, [<], [<]) ps)
+  -> (ty : TmTypechecker m Check (gs, ps, ps))
+  -> Typechecker m Item (gs, [<], [<]) (gs :< (ps ** MkGlobName n PrimGlob), [<], [<])
+primItem n params ty = InItem $ \ctx => do
+  (ctx', params') <- tel' params ctx
+  ty' <- check ty ctx' VU
+  let Val ps = ctx'.local.names
+  let vty = eval ctx'.local.env ty'
+  pure (extendGlobal (\sig => sig :< Prim (MkPrimItem n params' vty)) ctx)
+  

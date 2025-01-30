@@ -26,7 +26,7 @@ data Ctor : Names -> Names -> Type where
 
 -- record PartialClause (ns : Names) where
 --   constructor MkPartialClause
---   constraints : List (Constraint ns)
---   copats : List (CoPat ns)
+--   constraints : SnocList (Constraint ns)
+--   copats : SnocList (CoPat ns)
 --   rhs : STm ns
 

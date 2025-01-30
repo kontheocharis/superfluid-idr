@@ -120,6 +120,9 @@ symbol s = atom $ string s
 parens : Parser a -> Parser a
 parens p = between (symbol "(") (symbol ")") p
 
+curlies : Parser a -> Parser a
+curlies p = between (symbol "{") (symbol "}") p
+
 -- Actual language:
 
 ident : Parser String
@@ -143,8 +146,19 @@ param = atom . parens $ do
   t <- tm
   pure (n, t)
 
-tel : Parser (DPair (List (Name, PTy)) NonEmpty)
-tel = many1 param
+tel : Parser PTel
+tel = do 
+  ps <- many1 param
+  pure $ MkPTel (cast ps.fst)
+
+fields : Parser PFields
+fields = do 
+  fs <- sepBy (symbol ",") $ do
+    n <- name
+    symbol ":"
+    t <- tm
+    pure (n, t)
+  pure $ MkPFields (MkPTel (cast fs))
 
 lam : Parser PTm
 lam = atom $ do
@@ -153,7 +167,7 @@ lam = atom $ do
   symbol "=>"
   t <- tm
   case ns of
-    Left ns => pure $ foldr (\(n, ty) => \t => PLam n (Just ty) t) t ns.fst
+    Left ns => pure $ foldr (\(n, ty) => \t => PLam n (Just ty) t) t ns.actual
     Right ns => pure $ foldr (\n => \t => PLam n Nothing t) t ns.fst
 
 app : Parser PTm
@@ -164,10 +178,10 @@ app = atom $ do
 
 pi : Parser PTm
 pi = atom $ do
-  ns <- tel <|> (singleTm >>= \t => pure ([(MkName "_", t)] ** IsNonEmpty))
+  ns <- tel <|> (singleTm >>= \t => pure (MkPTel (cast [(MkName "_", t)])))
   symbol "->"
   t <- tm
-  pure $ foldr (\(n, ty) => \t => PPi n ty t) t ns.fst
+  pure $ foldr (\(n, ty) => \t => PPi n ty t) t ns.actual
 
 u : Parser PTm
 u = atom $ symbol "U" *> pure PU
@@ -184,10 +198,58 @@ letIn = atom $ do
   symbol ";"
   b <- tm
   pure $ PLet n ty a b
+  
+caseOf : Parser PTm
+caseOf = atom $ do
+  symbol "case"
+  t <- tm
+  brs <- curlies . sepBy (symbol ",") $ do
+    p <- tm
+    symbol "=>"
+    t <- tm
+    pure (p, t)
+  pure $ PCase t (MkPBranches (cast brs))
+  
+tm = lam <|> letIn <|> caseOf <|> pi <|> app <|> singleTm
 
-tm = lam <|> pi <|> letIn <|> app <|> singleTm
+singleTm = u <|> (PName <$> name) <|> parens tm <|> curlies tm
 
-singleTm = u <|> (PName <$> name) <|> parens tm
+dataItem : Parser PItem
+dataItem = atom $ do
+  symbol "data"
+  n <- name
+  params <- tel
+  symbol ":"
+  kind <- tm
+  ctors <- curlies $ fields
+  pure $ PData n params kind ctors
+  
+defItem : Parser PItem
+defItem = atom $ do
+  symbol "def"
+  n <- name
+  params <- tel
+  symbol ":"
+  ty <- tm
+  symbol "="
+  tm <- tm
+  pure $ PDef n params ty tm
+
+primItem : Parser PItem
+primItem = atom $ do
+  symbol "prim"
+  n <- name
+  params <- tel
+  symbol ":"
+  ty <- tm
+  pure $ PPrim n params ty
+
+item : Parser PItem
+item = dataItem <|> defItem <|> primItem
+
+public export
+sig : Parser PSig
+sig = cast <$> many item
 
 public export
 parse : Parser a -> String -> Either ParseError a

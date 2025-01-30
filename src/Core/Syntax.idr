@@ -61,7 +61,6 @@ namespace Tel
   (++.) : Tel f ps [<] -> Tel f qs ps -> Tel f (ps ++ qs) [<]
   (++.) a b = a ++ (rewrite appendLinLeftNeutral ps in b)
 
-
 namespace Spine
   data Spine where
     Lin : Spine f [<] ns

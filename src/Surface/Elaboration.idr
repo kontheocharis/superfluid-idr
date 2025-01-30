@@ -59,3 +59,25 @@ elab Infer (PPi n a b) = pi n (elab Check a) (elab Check b)
 elab Infer (PApp f x) = app (elab Infer f) (elab Check x)
 elab Infer (PName n) = named n
 elab Infer PU = u
+
+elabTel : (Elab m) => PTel -> Exists (\ps => TelTypechecker m Check (gs, ns, bs) ps)
+elabTel (MkPTel [<]) = Evidence _ [<]
+elabTel (MkPTel (ts :< (n, t))) = Evidence _ (snd (elabTel (MkPTel ts)) :< (n, elab Check t))
+
+elabItem : (Elab m)
+  => (i : PItem)
+  -> Exists (\ps => Typechecker m Item (gs, [<], [<]) (gs :< (ps ** i.name), [<], [<]))
+elabItem (PDef n pr ty tm) = Evidence _ (defItem n (snd (elabTel pr)) (elab Check ty) (elab Infer tm))
+elabItem (PPrim n pr ty) = Evidence _ (primItem n (snd (elabTel pr)) (elab Check ty))
+elabItem (PData n pr ty cs) = ?elabPData
+
+public export
+elabSig : (Elab m) => PSig -> m (Exists (\gs => Sig gs))
+elabSig [<] = pure $ Evidence _ Lin
+elabSig (sig :< it) = do 
+  Evidence _ sig' <- elabSig sig
+  Evidence _ it' <- elabSig' it sig'
+  pure $ Evidence _ (sig' ++ it')
+  where
+    elabSig' : (i : PItem) -> Sig gs -> m (Exists (\ps => Sig (gs :< (ps ** i.name))))
+    elabSig' it sig = globally (snd $ elabItem it) (MkContext sig [<]) >>= \g => pure $ Evidence _ g.global

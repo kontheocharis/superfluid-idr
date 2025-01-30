@@ -25,6 +25,10 @@ Injective MkName where
 public export
 DecEq Name where
   decEq (MkName n) (MkName n') = decEqCong $ decEq n n'
+  
+public export
+Eq Name where
+  (==) (MkName n) (MkName n') = n == n'
 
 public export
 0 Names : Type

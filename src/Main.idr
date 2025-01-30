@@ -3,6 +3,7 @@ module Main
 import Data.String
 import System
 import System.File
+import Data.DPair
 
 import Common
 import Context
@@ -27,6 +28,17 @@ Elab IO where
     putStrLn "Elaboration error:"
     putStrLn $ "  " ++ show err
     exitWith (ExitFailure 1)
+    
+checkProgram : String -> IO ()
+checkProgram s = do
+  Right parsed <- pure $ parse sig s
+    | Left err => do
+        putStrLn "Parse error:"
+        putStrLn $ "  " ++ show err
+        exitWith (ExitFailure 1)
+  (Evidence _ sig) <- elabSig parsed
+  putStrLn $ "-- Raw program:\n" ++ show parsed
+  putStrLn $ "-- Checked program:\n" ++ show sig
 
 evalTerm : (bs : Names) => Context gs ns bs -> String -> IO ()
 evalTerm ctx s = do

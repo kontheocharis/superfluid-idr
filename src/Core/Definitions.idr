@@ -85,9 +85,9 @@ namespace CtorItem
 namespace PrimItem
   public export
   record PrimItem (0 sig : Sig gs) where
-    constructor MkDataItem
+    constructor MkPrimItem
     name : Name
-    ps : Names
+    {ps : Names}
     params : Tel (VTy gs) ps [<]
     ty : VTy gs ( ps)
 
@@ -113,6 +113,11 @@ namespace Sig
   data Sig : GlobNamed Type where
     Lin : Sig Lin
     (:<) : (sig : Sig gs) -> (i : Item sig) -> Sig (gs :< (i.arity ** i.globName))
+    
+  public export
+  (++) : Sig gs -> Sig gs' -> Sig (gs ++ gs')
+  (++) sig [<] = sig
+  (++) sig (sig' :< i) = sig ++ sig' :< i
 
 namespace Item
   data ItemIn : (sig : Sig gs) -> Item sig' -> Type where
