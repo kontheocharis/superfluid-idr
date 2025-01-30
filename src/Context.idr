@@ -39,7 +39,7 @@ public export
 Named t = (0 _ : Names) -> t
   
 public export
-data Size : Named Type where
+data Size : (0 _ : SnocList a) -> Type where
   SZ : Size Lin
   SS : Size us -> Size (us :< u)
 
@@ -180,6 +180,14 @@ interface Weaken (0 f : Named Type) where
 public export
 interface GlobWeaken (0 f : GlobNamed (Named Type)) where
   globWeaken : f gs ns -> f (gs :< g) ns
+
+  globWeakenN : Size gs' -> f gs ns -> f (gs ++ gs') ns
+  globWeakenN SZ x = x
+  globWeakenN (SS n) x = globWeaken (globWeakenN n x)
+
+  globWeakenTo : Size gs -> f [<] ns -> f gs ns
+  globWeakenTo SZ x = x
+  globWeakenTo (SS n) x = globWeaken (globWeakenTo n x)
 
 public export
 GlobWeaken GlobNameIn where

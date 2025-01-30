@@ -113,11 +113,13 @@ namespace Sig
   data Sig : GlobNamed Type where
     Lin : Sig Lin
     (:<) : (sig : Sig gs) -> (i : Item sig) -> Sig (gs :< (i.arity ** i.globName))
+  
+  (.size) : Sig gs -> Size gs
     
   public export
   (++) : Sig gs -> Sig gs' -> Sig (gs ++ gs')
   (++) sig [<] = sig
-  (++) sig (sig' :< i) = sig ++ sig' :< i
+  (++) sig (sig' :< i) = let x = sig ++ sig' in x :< globWeakenN sig'.size i
 
 namespace Item
   data ItemIn : (sig : Sig gs) -> Item sig' -> Type where
