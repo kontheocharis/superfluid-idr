@@ -82,15 +82,28 @@ sHeres : Size ns -> Size ps -> Spine (STm gs) ps (ns ++ ps)
 sHeres nss pss = quoteSpine (nss + pss) (vHeres nss pss)
 
 public export partial covering
-vPis : Size ns -> Tel (VTm gs) ps ns -> VTm gs (ns ++ ps) -> VTm gs ns
+vPis : Size ns -> VTel gs ps ns -> VTm gs (ns ++ ps) -> VTm gs ns
 vPis nss [<] b = b
-vPis nss (as :< (n, a)) b = vPis nss as (VPi n a (closeVal (SS SZ) (growEnvN nss as.size idEnv) b))
+vPis nss (as :< (n, a)) b = vPis nss as (VPi n (apply nss a) (closeVal (SS SZ) (growEnvN nss as.size idEnv) b))
 
 public export partial covering
-vPis' : Tel (VTm gs) ps [<] -> VTm gs ps -> VTm gs [<]
+vPis' : VTel gs ps [<] -> VTm gs ps -> VTm gs [<]
 vPis' as b = vPis SZ as (rewrite appendLinLeftNeutral ps in b)
   
 public export partial covering
 vTelToTelVTm : Size ns -> VTel gs ps ns -> Tel (VTm gs) ps ns
 vTelToTelVTm _ [<] = [<]
 vTelToTelVTm s ((:<) {ps = ps} te' (n, t)) = (vTelToTelVTm s te') :< (n, apply s t)
+
+public export covering
+moveToBound : Size ns -> Size ps -> Size ls -> Closure gs ls (ns ++ ps) -> Closure gs (ps ++ ls) ns
+moveToBound nss pss lss cl = closeVal (pss + lss) idEnv (rewrite appendAssociative ns ps ls in apply (nss + pss) cl)
+
+public export covering
+(++) : {auto ss : Size ns} -> VTel gs ps ns -> VTel gs qs (ns ++ ps) -> VTel gs (ps ++ qs) ns
+(++) {ss} te [<] = te
+(++) {ss} te ((:<) {ps = ls} te' (n, t)) = (te ++ te') :< (n, moveToBound ss te.size te'.size t)
+
+public export covering
+(++.) : VTel gs ps [<] -> VTel gs qs ps -> VTel gs (ps ++ qs) [<]
+(++.) a b = a ++ (rewrite appendLinLeftNeutral ps in b)

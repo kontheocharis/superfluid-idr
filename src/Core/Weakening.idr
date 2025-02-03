@@ -5,6 +5,8 @@ import Context
 import Core.Syntax
 import Core.Values
 
+import Data.SnocList
+
 mutual
   public export
   weakenClosure : Closure gs n ns -> Closure gs n (ns :< n')
@@ -27,6 +29,16 @@ mutual
   weakenVTel : VTel gs ps ns -> VTel gs ps (ns :< n)
   weakenVTel [<] = [<]
   weakenVTel (xs :< (m, cl)) = weakenVTel xs :< (m, weakenClosure cl)
+  
+  public export
+  globWeakenVTel : VTel gs ps ns -> VTel (gs :< g) ps ns
+  globWeakenVTel [<] = [<]
+  globWeakenVTel (xs :< (m, cl)) = globWeakenVTel xs :< (m, globWeakenClosure cl)
+
+  public export
+  globReorderVTel : VTel (gs :< g :< g') ps ns -> VTel (gs :< g' :< g) ps ns
+  globReorderVTel [<] = [<]
+  globReorderVTel (xs :< (m, cl)) = globReorderVTel xs :< (m, globReorderClosure cl)
 
   public export
   globWeakenSTm : STm gs ns -> STm (gs :< g) ns
@@ -181,6 +193,14 @@ public export
 GlobWeaken (\gs => Tel (VTm gs) ps) where
   globWeaken = globWeakenTel
   globReorder = globReorderTel
+  
+Weaken (VTel gs ps) where
+  weaken = weakenVTel
+
+public export
+[globWeakenForVTel] GlobWeaken (\gs => VTel gs ps) where
+  globWeaken = globWeakenVTel
+  globReorder = globReorderVTel
 
 public export
 GlobWeaken (\gs => Spine (VTm gs) ps) where

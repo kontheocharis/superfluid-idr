@@ -32,7 +32,6 @@ record Closure (0 gs : GlobNames) (0 us : Names) (0 ns : Names) where
   vars : Size us
   env : Env gs ns ks
   tm : STm gs (ks ++ us)
-  
 
 data VTm where
   VLam : (n : Name) -> Closure gs [< n] ns -> VTm gs ns
@@ -58,8 +57,13 @@ record VTerm (0 gs : GlobNames) (0 bs : Names) where
   ty : VTy gs bs
   tm : VTm gs bs
 
-public export
-data VTel : GlobNamed (Named (Named Type)) where
-  Lin : VTel gs [<] ns
-  (:<) : VTel gs ps ns -> (p : (Name, Closure gs ps ns)) -> VTel gs (ps :< fst p) ns
-  
+namespace VTel
+  public export
+  data VTel : GlobNamed (Named (Named Type)) where
+    Lin : VTel gs [<] ns
+    (:<) : VTel gs ps ns -> (p : (Name, Closure gs ps ns)) -> VTel gs (ps :< fst p) ns
+    
+  public export
+  (.size) : VTel gs ps ns -> Size ps
+  (.size) Lin = SZ
+  (.size) (te :< _) = SS te.size
