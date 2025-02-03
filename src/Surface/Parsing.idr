@@ -9,6 +9,8 @@ import Data.List
 import Data.String
 import Data.DPair
 
+%default covering
+
 -- Setup:
 
 public export

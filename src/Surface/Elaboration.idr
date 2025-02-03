@@ -25,7 +25,7 @@ interface (Tc m) => Elab m where
 errorElab : (Elab m) => {md : TcMode} -> ElabError -> Typechecker m md i i'
 errorElab e = InError $ elabError e
 
-public export
+public export covering
 elab : (Elab m) => (md : TcMode) -> {auto _ : IsTmMode md}
   -> PTm
   -> Typechecker m md (gs, ns, bs) (gs, ns, bs)
@@ -34,6 +34,7 @@ elabPat : (Elab m)
   => PPat
   -> WithIrrNamesN 2 (\pns => \pbs => Typechecker m Bind (gs, ns, bs) (gs, ns ++ pns, bs ++ pbs))
 
+covering
 elabBranch : (Elab m) => (md : TcMode) -> {auto _ : IsTmMode md}
   -> (PPat, PTm)
   -> WithIrrNamesN 2 (BranchTypechecker m md (gs, ns, bs))
@@ -42,6 +43,7 @@ elabBranch md (p, t) =
   let t' = elab md t in
   Evidence pns (Evidence pbs (p', t'))
 
+covering
 elabBranches : (Elab m) => (md : TcMode) -> {auto _ : IsTmMode md}
   -> PBranches
   -> IrrNameListN 2 (BranchTypechecker m md (gs, ns, bs))
@@ -61,10 +63,12 @@ elab Infer (PApp f x) = app (elab Infer f) (elab Check x)
 elab Infer (PName n) = named n
 elab Infer PU = u
 
+covering
 elabTel : (Elab m) => PTel -> Exists (\ps => TelTypechecker m Check (gs, ns, bs) ps)
 elabTel (MkPTel [<]) = Evidence _ [<]
 elabTel (MkPTel (ts :< (n, t))) = Evidence _ (snd (elabTel (MkPTel ts)) :< (n, elab Check t))
 
+covering
 elabItem : (Elab m)
   => (i : PItem)
   -> Exists (\ps => Typechecker m Item (gs, [<], [<]) (gs :< (ps ** i.name), [<], [<]))
@@ -72,7 +76,7 @@ elabItem (PDef n pr ty tm) = Evidence _ (defItem n (snd (elabTel pr)) (elab Chec
 elabItem (PPrim n pr ty) = Evidence _ (primItem n (snd (elabTel pr)) (elab Check ty))
 elabItem (PData n pr ty cs) = ?elabPData
 
-public export
+public export covering
 elabSig : (Elab m) => PSig -> m (Exists (\gs => Sig gs))
 elabSig (MkPSig [<]) = pure $ Evidence _ Lin
 elabSig (MkPSig (sig :< it)) = do 

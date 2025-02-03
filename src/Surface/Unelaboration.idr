@@ -18,6 +18,7 @@ import Data.List
 public export
 unelab : {ns : Names} -> STm gs ns -> PTm
 
+covering
 unelabVal : {ns : Names} -> VTm gs ns -> PTm
 unelabVal v = unelab (quote ns.size v)
 
@@ -34,12 +35,12 @@ unelab (SLet n a b) = PLet n Nothing (unelab a) (unelab b)
 unelab (SGlob (MkGlobNameIn n _) sp) = pApps (PName n.name) (unelabSpine sp)
 unelab SU = PU
 
-public export
+public export covering
 unelabTel : {ns : Names} -> {ps : Names} -> Tel (VTy gs) ps ns -> PTel
 unelabTel Lin = MkPTel [<]
 unelabTel (te :< (n, t)) = let MkPTel ts = unelabTel te in MkPTel (ts :< (n, unelabVal t))
 
-public export
+public export covering
 unelabItem : (sig : Sig gs) -> Item sig -> State (SnocList (Name, PFields)) PSig
 unelabItem _ (Def (MkDefItem n pr ty tm)) = pure . MkPSig . cast $ [PDef n (unelabTel pr) (unelabVal ty) $ case tm of
   Just t => unelab t
@@ -57,10 +58,11 @@ unelabItem sig it@(Ctor (MkCtorItem n _ _)) = do
     modifyAt _ _ [<] = [<]
     modifyAt a' f (xs :< (a, b)) = if a == a' then xs :< (a, f b) else modifyAt a' f xs :< (a, b)
 
-public export
+public export covering
 unelabSig : Sig gs -> PSig 
 unelabSig s = evalState [<] (unelabSig' s)
   where 
+    covering
     unelabSig' : Sig gs' -> State (SnocList (Name, PFields)) PSig
     unelabSig' [<] = pure . MkPSig $ [<]
     unelabSig' (sig :< it) = do

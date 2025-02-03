@@ -71,7 +71,7 @@ pApps f (xs :< x) = PApp (pApps f xs) x
 public export
 pPis : PTel -> PTy -> PTy
 pPis (MkPTel [<]) b = b
-pPis (MkPTel (ts :< (n, a))) b = pPis (MkPTel ts) (PPi n a b)
+pPis (MkPTel (ts :< (n, a))) b = pPis (assert_smaller (MkPTel (ts :< (n, a))) (MkPTel ts)) (PPi n a b)
 
 public export
 Show PTm

@@ -11,6 +11,7 @@ import Context
 import Core.Syntax
 import Core.Values
 import Core.Evaluation
+import Core.Weakening
 import Core.Conversion
 
 namespace Sig
@@ -119,7 +120,22 @@ namespace Sig
   public export
   (++) : Sig gs -> Sig gs' -> Sig (gs ++ gs')
   (++) sig [<] = sig
-  (++) sig (sig' :< i) = let x = sig ++ sig' in x :< globWeakenN sig'.size i
+  (++) sig (sig' :< i) = ?h1
+  
+globWeakenDefItem : DefItem sig -> DefItem (sig :< i)
+globWeakenDefItem (MkDefItem n params ty tm) = MkDefItem n (globWeakenTel params) (globWeaken ty) (map (globReorder . globWeaken) tm)
+
+globWeakenDataItem : DataItem sig -> DataItem (sig :< i)
+globWeakenDataItem (MkDataItem n params indices) = MkDataItem n (globWeakenTel params) (globWeakenTel indices)
+
+globWeakenPrimItem : PrimItem sig -> PrimItem (sig :< i)
+globWeakenPrimItem (MkPrimItem n params ty) = MkPrimItem n (globWeakenTel params) (globWeaken ty)
+  
+globWeakenItem : Item gs -> Item (gs :< g)
+globWeakenItem (Def d) = Def (globWeakenDefItem d)
+globWeakenItem (Data d) = Data (globWeakenDataItem d)
+globWeakenItem (Prim p) = Prim (globWeakenPrimItem p)
+globWeakenItem (Ctor c) = ?globWeakenCtor
 
 namespace Item
   data ItemIn : (sig : Sig gs) -> Item sig' -> Type where
@@ -178,6 +194,10 @@ public export
   globWeaken (Bind ctx n ty) = Bind (globWeaken @{globWeakenCtx} ctx) n (globWeaken ty)
   globWeaken (Def ctx n ty tm) = Def (globWeaken @{globWeakenCtx} ctx) n (globWeaken ty) (globWeaken tm)
 
+  globReorder Lin = Lin
+  globReorder (Bind ctx n ty) = Bind (globReorder @{globWeakenCtx} ctx) n (globReorder ty)
+  globReorder (Def ctx n ty tm) = Def (globReorder @{globWeakenCtx} ctx) n (globReorder ty) (globReorder tm)
+
 public export
 extendGlobal : (Sig gs -> Sig (gs :< g)) -> Context gs ns bs -> Context (gs :< g) ns bs
 extendGlobal f (MkContext sig ctx) = MkContext (f sig) (globWeaken @{globWeakenCtx} ctx)
@@ -233,7 +253,7 @@ lookupLocal ctx@(Def ctx' n ty tm) m = case decEq n m of
   Yes Refl => Just (IZ, thisTerm ctx, Here)
   No q => map (\(i, t, e) => (IS i, t, There e)) (lookupLocal ctx' m)
 
-public export
+public export covering
 itemTy : {sig : Sig us} -> Item sig -> VTy us [<]
 itemTy (Def d) = vPis' d.params d.ty
 itemTy (Data d) = vPis' d.params (vPis d.params.size d.indices VU)
@@ -246,7 +266,7 @@ itemTy (Ctor {di = di} c) = case getDataItem di of
     let ret = vGlob di retSp in
     vPis' binds ret
 
-public export
+public export covering
 lookupItem : Size bs -> Sig gs -> (n : Name) -> Maybe (DPair Names (\ps => (GlobNameIn gs ps, VTy gs bs)))
 lookupItem s [<] _ = Nothing
 lookupItem s sig@((:<) sig' it) m = case decEq it.name m of
@@ -259,7 +279,7 @@ data LookupResult : GlobNamed (Named (Named Type)) where
   FoundLocal : Idx ns -> VTerm gs bs -> Elem n ns -> LookupResult gs ns bs
   NotFound : LookupResult gs ns bs
 
-public export
+public export covering
 lookupName : Context gs ns bs -> (n : Name) -> LookupResult gs ns bs
 lookupName (MkContext sig ctx) m = case lookupLocal ctx m of
     Just (i, t, e) => FoundLocal i t e

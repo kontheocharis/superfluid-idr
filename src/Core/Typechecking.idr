@@ -84,14 +84,14 @@ public export
 0 TmTypechecker : (0 m : Type -> Type) -> (Tc m) => (0 _ : TcMode) -> ContextIndex -> Type
 TmTypechecker m md i = Typechecker m md i i
 
-public export
+public export covering
 convertOrError : (Tc m) => Context gs ns bs -> VTy gs bs -> VTy gs bs -> m ()
 convertOrError ctx a b =
   if convert ctx.local.bindsSize a b
     then pure ()
     else tcError (Mismatch ctx.local.binds a b)
 
-public export
+public export covering
 switch : (Tc m) => Typechecker m Infer i i' -> Typechecker m Check i i'
 switch (InInfer f) = InCheck $ \ctx => \ty => do
   (t, ty') <- f ctx
@@ -100,7 +100,7 @@ switch (InInfer f) = InCheck $ \ctx => \ty => do
 switch (InError f) = InError f
 switch InTrivial impossible
 
-public export
+public export covering
 check : (Tc m) => {auto t : IsTmMode md}
   -> Typechecker m md (gs, ns, bs) (gs', ns', bs')
   -> Context gs ns bs
@@ -150,14 +150,14 @@ var : (Tc m) => Idx ns -> TmTypechecker m Infer (gs, ns, bs)
 var i = InInfer $ \ctx => case getIdx ctx.local i of
     MkVTerm ty _ => pure (SVar i, ty)
 
-public export
+public export covering
 named : (Tc m) => Name -> TmTypechecker m Infer (gs, ns, bs)
 named n = InInfer $ \ctx => case lookupName ctx n of
     FoundLocal i (MkVTerm ty _) _ => pure (SVar i, ty)
     FoundItem ps g ty => pure (sLams ps (SGlob g (sHeres ctx.local.size ps.size)), ty)
     NotFound => tcError (NameNotFound n)
 
-public export
+public export covering
 lam : (Tc m) => {auto _ : IsTmMode md}
   -> (n : Name)
   -> (body : TmTypechecker m md (gs, ns :< n, bs :< n))
@@ -169,7 +169,7 @@ lam n f = InCheck $ \ctx => \ty => case ty of
   _ => tcError ExpectedPi
   
 
-public export
+public export covering
 typedLam : (Tc m) => {auto _ : IsTmMode md}
   -> (n : Name)
   -> (argTy : TmTypechecker m md (gs, ns, bs))
@@ -179,9 +179,9 @@ typedLam n a f = InInfer $ \ctx => do
     a' <- check a ctx VU
     let va = eval ctx.local.env a'
     (t, b) <- infer f (mapLocal (\l => Bind l n va) ctx)
-    pure (SLam n t, VPi n va (closeVal (idEnv {s = ctx.local.bindsSize}) b))
+    pure (SLam n t, VPi n va (closeVal (SS SZ) (idEnv {s = ctx.local.bindsSize}) b))
 
-public export
+public export covering
 letIn : (Tc m) => {auto _ : IsTmMode md}
   -> (n : Name)
   -> (rhs : TmTypechecker m Infer (gs, ns, bs))
@@ -193,7 +193,7 @@ letIn n a b = mirror b $ \ctx => \ret => do
   (b', ret') <- run b (mapLocal (\l => Def l n ty va) ctx) ret
   pure (SLet n a' b', ret')
 
-public export
+public export covering
 typedLetIn : (Tc m) => {auto _ : IsTmMode md}
   -> (n : Name)
   -> (rhsTy : TmTypechecker m Check (gs, ns, bs))
@@ -208,7 +208,7 @@ typedLetIn n ty a b = mirror b $ \ctx => \ret => do
   (b', ret') <- run b (mapLocal (\l => Def l n vty va) ctx) ret
   pure (SLet n a' b', ret')
 
-public export
+public export covering
 app : (Tc m) => {auto _ : IsTmMode md}
   -> (fn : TmTypechecker m Infer (gs, ns, bs))
   -> (arg : TmTypechecker m md (gs, ns, bs))
@@ -218,10 +218,10 @@ app f g = InInfer $ \ctx => do
   case a of
     VPi n a b => do
       g' <- check g ctx a
-      pure (SApp f' n g', b $$ eval ctx.local.env g')
+      pure (SApp f' n g', b $$ [< eval ctx.local.env g'])
     _ => tcError ExpectedPi
 
-public export
+public export covering
 pi : (Tc m) => {auto _ : IsTmMode md} -> {auto _ : IsTmMode md'}
   -> (n : Name)
   -> (dom : TmTypechecker m md (gs, ns, bs))
@@ -260,6 +260,7 @@ namespace TelTypechecker
       -> (p : (Name, Typechecker m md (gs, ns ++ ps, bs ++ ps) (gs, ns ++ ps, bs ++ ps)))
       -> TelTypechecker m md (gs, ns, bs) (ps :< fst p)
       
+public export covering
 tel : (Tc m) => {auto _ : IsTmMode md}
   -> TelTypechecker m md (gs, ns, bs) ps
   -> Context gs ns bs
@@ -271,6 +272,7 @@ tel ((:<) ts (n, t)) ctx = do
   let vty = eval ctx'.local.env t'
   pure (mapLocal (\l => Bind l n vty) ctx', ts' :< (n, vty))
   
+public export covering
 tel' : (Tc m) => {auto _ : IsTmMode md}
   -> TelTypechecker m md (gs, [<], [<]) ps
   -> Context gs [<] [<]
@@ -286,7 +288,7 @@ caseOf : (Tc m)
   -> Typechecker m md (gs, ns, bs) (gs, ns, bs)
 caseOf = ?caseOfImpl
 
-public export
+public export covering
 defItem : (Tc m)
   => (n : Name)
   -> (params : TelTypechecker m Check (gs, [<], [<]) ps)
@@ -301,7 +303,7 @@ defItem n params ty tm = InItem $ \ctx => do
   tm' <- check tm (extendGlobal (\sig => sig :< Def (MkDefItem n params' vty Nothing)) ctx') (globWeaken vty)
   pure (extendGlobal (\sig => sig :< Def (MkDefItem n params' vty (Just tm'))) ctx)
 
-public export
+public export covering
 primItem : (Tc m)
   => (n : Name)
   -> (params : TelTypechecker m Check (gs, [<], [<]) ps)

@@ -17,7 +17,7 @@ mutual
   public export partial covering
   convert : (s : Size bs) -> VTm gs bs -> VTm gs bs -> Bool
   convert _ VU VU = True
-  convert s (VPi _ a b) (VPi _ a' b') = convert s a a' && convert (SS s) (applyRen s b) (apply s b')
+  convert s (VPi n a b) (VPi n' a' b') = convert s a a' && convert (SS s) (applyRen s b) (apply s b')
   convert s (VLam _ t) (VLam _ t') = convert (SS s) (applyRen s t) (apply s t')
   convert s (VLam n t) u = convert (SS s) (apply s t) (app (weaken u) n (VVar (lastLvl s)))
   convert s u (VLam n t) = convert (SS s) (app (weaken u) n (VVar (lastLvl s))) (apply s t)

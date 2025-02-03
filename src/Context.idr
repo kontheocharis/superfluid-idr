@@ -60,49 +60,25 @@ record GlobName (0 ps : Names) where
   constructor MkGlobName
   name : Name
   kind : GlobKind
-
+  
 public export
 DecEq GlobKind where
   decEq CtorGlob CtorGlob = Yes Refl
   decEq DataGlob DataGlob = Yes Refl
   decEq DefGlob DefGlob = Yes Refl
   decEq PrimGlob PrimGlob = Yes Refl
-  decEq CtorGlob DataGlob = No (\p => case p of
-      Refl impossible
-    )
-  decEq CtorGlob DefGlob = No (\p => case p of
-      Refl impossible
-    )
-  decEq CtorGlob PrimGlob = No (\p => case p of
-      Refl impossible
-    )
-  decEq DataGlob CtorGlob = No (\p => case p of
-      Refl impossible
-    )
-  decEq DataGlob DefGlob = No (\p => case p of
-      Refl impossible
-    )
-  decEq DataGlob PrimGlob = No (\p => case p of
-      Refl impossible
-    )
-  decEq DefGlob CtorGlob = No (\p => case p of
-      Refl impossible
-    )
-  decEq DefGlob DataGlob = No (\p => case p of
-      Refl impossible
-    )
-  decEq DefGlob PrimGlob = No (\p => case p of
-      Refl impossible
-    )
-  decEq PrimGlob CtorGlob = No (\p => case p of
-      Refl impossible
-    )
-  decEq PrimGlob DataGlob = No (\p => case p of
-      Refl impossible
-    )
-  decEq PrimGlob DefGlob = No (\p => case p of
-      Refl impossible
-    )
+  decEq CtorGlob DataGlob = No (\case Refl impossible)
+  decEq CtorGlob DefGlob = No (\case Refl impossible)
+  decEq CtorGlob PrimGlob = No (\case Refl impossible)
+  decEq DataGlob CtorGlob = No (\case Refl impossible)
+  decEq DataGlob DefGlob = No (\case Refl impossible)
+  decEq DataGlob PrimGlob = No (\case Refl impossible)
+  decEq DefGlob CtorGlob = No (\case Refl impossible)
+  decEq DefGlob DataGlob = No (\case Refl impossible)
+  decEq DefGlob PrimGlob = No (\case Refl impossible)
+  decEq PrimGlob CtorGlob = No (\case Refl impossible)
+  decEq PrimGlob DataGlob = No (\case Refl impossible)
+  decEq PrimGlob DefGlob = No (\case Refl impossible)
 
 public export
 Biinjective MkGlobName where
@@ -181,6 +157,8 @@ public export
 interface GlobWeaken (0 f : GlobNamed (Named Type)) where
   globWeaken : f gs ns -> f (gs :< g) ns
 
+  globReorder : f (gs :< g :< g') ns -> f (gs :< g' :< g) ns
+
   globWeakenN : Size gs' -> f gs ns -> f (gs ++ gs') ns
   globWeakenN SZ x = x
   globWeakenN (SS n) x = globWeaken (globWeakenN n x)
@@ -192,6 +170,11 @@ interface GlobWeaken (0 f : GlobNamed (Named Type)) where
 public export
 GlobWeaken GlobNameIn where
   globWeaken (MkGlobNameIn n e) = MkGlobNameIn n (There e)
+
+  globReorder (MkGlobNameIn n e) = MkGlobNameIn n (case e of
+    There Here => Here
+    There (There e) => There (There e)
+    Here => There Here)
 
 public export
 Weaken Lvl where

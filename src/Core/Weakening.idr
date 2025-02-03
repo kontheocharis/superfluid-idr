@@ -6,10 +6,9 @@ import Core.Syntax
 import Core.Values
 
 mutual
-
   public export
   weakenClosure : Closure gs n ns -> Closure gs n (ns :< n')
-  weakenClosure (Cl env t) = Cl (weakenEnv env) t
+  weakenClosure (Cl vs env t) = Cl vs (weakenSpine env) t
 
   public export
   weakenVTm : VTm gs ns -> VTm gs (ns :< n)
@@ -20,11 +19,6 @@ mutual
   weakenVTm (VGlob n sp) = VGlob n (weakenSpine sp)
 
   public export
-  weakenEnv : Env gs ns ms -> Env gs (ns :< n) ms
-  weakenEnv [<] = [<]
-  weakenEnv (xs :< x) = weakenEnv xs :< weakenVTm x
-
-  public export
   weakenSpine : Spine (VTm gs) ps ns -> Spine (VTm gs) ps (ns :< n)
   weakenSpine [<] = [<]
   weakenSpine (xs :< x) = weakenSpine xs :< weakenVTm x
@@ -33,6 +27,11 @@ mutual
   weakenTel : Tel (VTm gs) ps ns -> Tel (VTm gs) ps (ns :< n)
   weakenTel [<] = [<]
   weakenTel (xs :< (m, x)) = weakenTel xs :< (m, ?weakenVTmx)
+  
+  public export
+  weakenVTel : VTel gs ps ns -> VTel gs ps (ns :< n)
+  weakenVTel [<] = [<]
+  weakenVTel (xs :< (m, cl)) = weakenVTel xs :< (m, weakenClosure cl)
 
   public export
   globWeakenSTm : STm gs ns -> STm (gs :< g) ns
@@ -43,6 +42,16 @@ mutual
   globWeakenSTm SU = SU
   globWeakenSTm (SLet n a b) = SLet n (globWeakenSTm a) (globWeakenSTm b)
   globWeakenSTm (SGlob n sp) = SGlob (globWeaken n) (globWeakenSTmSpine sp)
+  
+  public export
+  globReorderSTm : STm (gs :< g :< g') ns -> STm (gs :< g' :< g) ns
+  globReorderSTm (SVar i) = SVar i
+  globReorderSTm (SLam n t) = SLam n (globReorderSTm t)
+  globReorderSTm (SApp f n a) = SApp (globReorderSTm f) n (globReorderSTm a)
+  globReorderSTm (SPi n a b) = SPi n (globReorderSTm a) (globReorderSTm b)
+  globReorderSTm SU = SU
+  globReorderSTm (SLet n a b) = SLet n (globReorderSTm a) (globReorderSTm b)
+  globReorderSTm (SGlob n sp) = SGlob (globReorder n) (globReorderSTmSpine sp)
 
   public export
   globWeakenSTmSpine : Spine (STm gs) ps ns -> Spine (STm (gs :< g)) ps ns
@@ -50,14 +59,29 @@ mutual
   globWeakenSTmSpine (sp :< t) = globWeakenSTmSpine sp :< globWeakenSTm t
 
   public export
+  globReorderSTmSpine : Spine (STm (gs :< g :< g')) ps ns -> Spine (STm (gs :< g' :< g)) ps ns
+  globReorderSTmSpine [<] = [<]
+  globReorderSTmSpine (sp :< t) = globReorderSTmSpine sp :< globReorderSTm t
+
+  public export
   globWeakenVTmSpine : Spine (VTm gs) ps ns -> Spine (VTm (gs :< g)) ps ns
   globWeakenVTmSpine [<] = [<]
   globWeakenVTmSpine (sp :< t) = globWeakenVTmSpine sp :< globWeakenVTm t
 
   public export
+  globReorderVTmSpine : Spine (VTm (gs :< g :< g')) ps ns -> Spine (VTm (gs :< g' :< g)) ps ns
+  globReorderVTmSpine [<] = [<]
+  globReorderVTmSpine (sp :< t) = globReorderVTmSpine sp :< globReorderVTm t
+
+  public export
   globWeakenSpine : {0 f : GlobNamed (Named Type)} -> (f gs ns -> f (gs :< g) ns) -> Spine (f gs) ps ns -> Spine (f (gs :< g)) ps ns
   globWeakenSpine n [<] = [<]
   globWeakenSpine {f} n (sp :< t) = globWeakenSpine {f} n sp :< n t
+  
+  public export
+  globReorderSpine : {0 f : GlobNamed (Named Type)} -> (f (gs :< g :< g') ns -> f (gs :< g' :< g) ns) -> Spine (f (gs :< g :< g')) ps ns -> Spine (f (gs :< g' :< g)) ps ns
+  globReorderSpine n [<] = [<]
+  globReorderSpine {f} n (sp :< t) = globReorderSpine {f} n sp :< n t
 
   public export
   globWeakenTel : (GlobWeaken f) => Tel (f gs) ps ns -> Tel (f (gs :< g)) ps ns
@@ -65,13 +89,27 @@ mutual
   globWeakenTel (sp :< (n, t)) = globWeakenTel sp :< (n, globWeaken t)
 
   public export
+  globReorderTel : (GlobWeaken f) => Tel (f (gs :< g :< g')) ps ns -> Tel (f (gs :< g' :< g)) ps ns
+  globReorderTel [<] = [<]
+  globReorderTel (sp :< (n, t)) = globReorderTel sp :< (n, globReorder t)
+
+  public export
   globWeakenEnv : Env gs ns ms -> Env (gs :< g) ns ms
   globWeakenEnv [<] = [<]
   globWeakenEnv (xs :< x) = globWeakenEnv xs :< globWeakenVTm x
 
   public export
+  globReorderEnv : Env (gs :< g :< g') ns ms -> Env (gs :< g' :< g) ns ms
+  globReorderEnv [<] = [<]
+  globReorderEnv (xs :< x) = globReorderEnv xs :< globReorderVTm x
+
+  public export
   globWeakenClosure : Closure gs n ns -> Closure (gs :< g) n ns
-  globWeakenClosure (Cl env t) = Cl (globWeakenEnv env) (globWeakenSTm t)
+  globWeakenClosure (Cl vs env t) = Cl vs (globWeakenEnv env) (globWeakenSTm t)
+
+  public export
+  globReorderClosure : Closure (gs :< g :< g') n ns -> Closure (gs :< g' :< g) n ns
+  globReorderClosure (Cl vs env t) = Cl vs (globReorderEnv env) (globReorderSTm t)
 
   public export
   globWeakenVTm : VTm gs ns -> VTm (gs :< g) ns
@@ -82,21 +120,30 @@ mutual
   globWeakenVTm (VGlob n sp) = VGlob (globWeaken n) (globWeakenVTmSpine sp)
 
   public export
+  globReorderVTm : VTm (gs :< g :< g') ns -> VTm (gs :< g' :< g) ns
+  globReorderVTm (VLam n cl) = VLam n (globReorderClosure cl)
+  globReorderVTm (VRigid i sp) = VRigid i (globReorderVTmSpine sp)
+  globReorderVTm (VPi n a cl) = VPi n (globReorderVTm a) (globReorderClosure cl)
+  globReorderVTm VU = VU
+  globReorderVTm (VGlob n sp) = VGlob (globReorder n) (globReorderVTmSpine sp)
+
+  public export
   idEnv : {auto s : Size ns} -> Env gs ns ns
   idEnv {s = SZ} = [<]
   idEnv {s = (SS n)} = growEnv n (idEnv {s = n})
 
   public export
   growEnv : (s : Size ns) -> Env gs ns ms -> Env gs (ns :< n) (ms :< m)
-  growEnv s env = weakenEnv env :< VVar (lastLvl s)
+  growEnv s env = weakenSpine env :< VVar (lastLvl s)
 
-public export
-Weaken (\ns => Env gs ns ms) where
-  weaken = weakenEnv
+-- public export
+-- Weaken (\ns => Env gs ns ms) where
+--   weaken = weakenEnv
 
 public export
 GlobWeaken (\gs => \ns => Env gs ns ms) where
   globWeaken = globWeakenEnv
+  globReorder = globReorderEnv
 
 public export
 Weaken (\ns => Spine (VTm gs) ps ns) where
@@ -113,6 +160,7 @@ Weaken (Closure gs n) where
 public export
 GlobWeaken (\gs => \ns => Closure gs n ns) where
   globWeaken = globWeakenClosure
+  globReorder = globReorderClosure
 
 public export
 Weaken (VTm gs) where
@@ -121,6 +169,7 @@ Weaken (VTm gs) where
 public export
 GlobWeaken VTm where
   globWeaken = globWeakenVTm
+  globReorder = globReorderVTm
 
 public export
 Weaken (VTerm gs) where
@@ -129,18 +178,32 @@ Weaken (VTerm gs) where
 public export
 GlobWeaken VTerm where
   globWeaken v = MkVTerm (globWeaken v.ty) (globWeaken v.tm)
+  globReorder v = MkVTerm (globReorder v.ty) (globReorder v.tm)
 
 public export
-GlobWeaken f => GlobWeaken (\gs => Spine (f gs) ps) where
+[globWeakenForSpine] GlobWeaken f => GlobWeaken (\gs => Spine (f gs) ps) where
   globWeaken = globWeakenSpine {f = f} globWeaken
+  globReorder = globReorderSpine {f = f} globReorder
 
 public export
-GlobWeaken f => GlobWeaken (\gs => Tel (f gs) ps) where
+[globWeakenForTel] GlobWeaken f => GlobWeaken (\gs => Tel (f gs) ps) where
   globWeaken = globWeakenTel
+  globReorder = globReorderTel
+
+public export
+GlobWeaken (\gs => Tel (VTm gs) ps) where
+  globWeaken = globWeakenTel
+  globReorder = globReorderTel
+
+public export
+GlobWeaken (\gs => Spine (VTm gs) ps) where
+  globWeaken = globWeakenSpine {f = VTm} globWeaken
+  globReorder = globReorderSpine {f = VTm} globReorder
 
 public export
 GlobWeaken STm where
   globWeaken = globWeakenSTm
+  globReorder = globReorderSTm
 
 public export
 growEnvN : (s : Size ns) -> Size ps -> Env gs ns ms -> Env gs (ns ++ ps) (ms ++ ps)
@@ -156,3 +219,7 @@ public export
 vHeres' : Size ps -> Spine (VTm gs) ps ps
 vHeres' SZ = [<]
 vHeres' (SS r) = weaken (vHeres' r) :< VVar (lastLvl r)
+
+public export
+weakenEnv : Env gs ns ms -> Env gs (ns :< n) ms
+weakenEnv = weakenSpine

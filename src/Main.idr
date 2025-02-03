@@ -17,6 +17,8 @@ import Core.Evaluation
 import Core.Typechecking
 import Core.Definitions
 
+%default covering
+
 Tc IO where
   tcError err = do
     putStrLn "Type error:"
