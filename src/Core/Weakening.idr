@@ -22,11 +22,6 @@ mutual
   weakenSpine : Spine (VTm gs) ps ns -> Spine (VTm gs) ps (ns :< n)
   weakenSpine [<] = [<]
   weakenSpine (xs :< x) = weakenSpine xs :< weakenVTm x
-
-  public export
-  weakenTel : Tel (VTm gs) ps ns -> Tel (VTm gs) ps (ns :< n)
-  weakenTel [<] = [<]
-  weakenTel (xs :< (m, x)) = weakenTel xs :< (m, ?weakenVTmx)
   
   public export
   weakenVTel : VTel gs ps ns -> VTel gs ps (ns :< n)
@@ -136,10 +131,6 @@ mutual
   growEnv : (s : Size ns) -> Env gs ns ms -> Env gs (ns :< n) (ms :< m)
   growEnv s env = weakenSpine env :< VVar (lastLvl s)
 
--- public export
--- Weaken (\ns => Env gs ns ms) where
---   weaken = weakenEnv
-
 public export
 GlobWeaken (\gs => \ns => Env gs ns ms) where
   globWeaken = globWeakenEnv
@@ -148,10 +139,6 @@ GlobWeaken (\gs => \ns => Env gs ns ms) where
 public export
 Weaken (\ns => Spine (VTm gs) ps ns) where
   weaken = weakenSpine
-
-public export
-Weaken (\ns => Tel (VTm gs) ps ns) where
-  weaken = weakenTel
 
 public export
 Weaken (Closure gs n) where

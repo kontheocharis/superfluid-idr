@@ -19,15 +19,11 @@ public export partial covering
 
 public export partial covering
 apply : (s : Size ms) -> Closure gs ns ms -> VTm gs (ms ++ ns)
-apply s (Cl vs env t) = eval (?g1) t
-
--- public export partial covering
--- applyOne : (s : Size ms) -> Closure gs [< n] ms -> VTm gs (ms :< n)
--- applyOne = ?hfsdf
+apply s (Cl vs env t) = eval (weakenN vs env ++ vHeres s vs) t
 
 public export partial covering
 applyRen : (s : Size ms) -> Closure gs [< n] ms -> VTm gs (ms :< n')
-applyRen s (Cl vs env t) = eval (?hfsd) t
+applyRen s (Cl vs env t) = eval (weaken env :< VVar (lastLvl s)) t
 
 public export partial covering
 app : VTm gs ns -> (0 n : Name) -> VTm gs ns -> VTm gs ns
@@ -94,6 +90,7 @@ public export partial covering
 vPis' : Tel (VTm gs) ps [<] -> VTm gs ps -> VTm gs [<]
 vPis' as b = vPis SZ as (rewrite appendLinLeftNeutral ps in b)
   
-vTelToTelVTm : VTel gs ps ns -> Tel (VTm gs) ps ns
--- vTelToTelVTm [<] = [<]
--- vTelToTelVTm ((:<) xs {p} cl) = let x = vTelToTelVTm xs :< ?fhjsdf in let v = cl $$ (VVar $ lastLvl x.size) in ?h123
+public export partial covering
+vTelToTelVTm : Size ns -> VTel gs ps ns -> Tel (VTm gs) ps ns
+vTelToTelVTm _ [<] = [<]
+vTelToTelVTm s ((:<) {ps = ps} te' (n, t)) = (vTelToTelVTm s te') :< (n, apply s t)
