@@ -264,19 +264,20 @@ public export covering
 tel : (Tc m) => {auto _ : IsTmMode md}
   -> TelTypechecker m md (gs, ns, bs) ps
   -> Context gs ns bs
-  -> m (Context gs (ns ++ ps) (bs ++ ps), Tel (VTy gs) ps bs)
+  -> m (Context gs (ns ++ ps) (bs ++ ps), VTel gs ps bs)
 tel [<] ctx = pure (ctx, [<])
 tel ((:<) ts (n, t)) ctx = do
   (ctx', ts') <- tel ts ctx
   t' <- check t ctx' VU
   let vty = eval ctx'.local.env t'
-  pure (mapLocal (\l => Bind l n vty) ctx', ts' :< (n, vty))
+  let cty = Cl ts'.size ctx.local.env t'
+  pure (mapLocal (\l => Bind l n vty) ctx', ts' :< (n, cty))
   
 public export covering
 tel' : (Tc m) => {auto _ : IsTmMode md}
   -> TelTypechecker m md (gs, [<], [<]) ps
   -> Context gs [<] [<]
-  -> m (Context gs ps ps, Tel (VTy gs) ps [<])
+  -> m (Context gs ps ps, VTel gs ps [<])
 tel' ts ctx = do
   (ctx', te) <- tel ts ctx
   pure (apLeftMMRR {f = Context} ctx', te)

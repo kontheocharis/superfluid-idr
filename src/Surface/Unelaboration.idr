@@ -22,6 +22,10 @@ covering
 unelabVal : {ns : Names} -> VTm gs ns -> PTm
 unelabVal v = unelab (quote ns.size v)
 
+covering
+unelabClosure : {ns : Names} -> {us : Names} -> Closure gs us ns -> PTm
+unelabClosure {ns} cl = unelabVal $ apply ns.size cl
+
 public export
 unelabSpine : {ns : Names} -> Spine (STm gs) ps ns -> SnocList PTm
 unelabSpine [<] = [<]
@@ -36,9 +40,9 @@ unelab (SGlob (MkGlobNameIn n _) sp) = pApps (PName n.name) (unelabSpine sp)
 unelab SU = PU
 
 public export covering
-unelabTel : {ns : Names} -> {ps : Names} -> Tel (VTy gs) ps ns -> PTel
+unelabTel : {ns : Names} -> {ps : Names} -> VTel gs ps ns -> PTel
 unelabTel Lin = MkPTel [<]
-unelabTel (te :< (n, t)) = let MkPTel ts = unelabTel te in MkPTel (ts :< (n, unelabVal t))
+unelabTel (te :< (n, t)) = let MkPTel ts = unelabTel te in MkPTel (ts :< (n, unelabClosure t))
 
 public export covering
 unelabItem : (sig : Sig gs) -> Item sig -> State (SnocList (Name, PFields)) PSig
