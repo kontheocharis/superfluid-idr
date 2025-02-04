@@ -161,20 +161,6 @@ globWeakenItem (Def d) = Def (globWeakenDefItem d)
 globWeakenItem (Data d) = Data (globWeakenDataItem d)
 globWeakenItem (Prim p) = Prim (globWeakenPrimItem p)
 globWeakenItem (Ctor c) = Ctor (globWeakenCtor c)
-    
-namespace Sig
-  public export
-  (++) : Sig gsi -> Sig gsi' -> Sig (gsi ++ gsi')
-
-public export
-globWeakenItemLeftN : {0 sig : Sig gs} -> (sig' : Sig gs') -> Item sig -> Item (sig' ++ sig)
-globWeakenItemLeftN [<] it = let m = it in ?fsdf
-globWeakenItemLeftN (sig' :< i) it = ?fdskjflsdkfj
-
-namespace Sig
-  (++) {gsi' = gsi'} [<] sig = rewrite appendLinLeftNeutral gsi' in sig
-  (++) sig [<] = sig
-  (++) sig (sig' :< i) = let y = globWeakenItemLeftN sig i in let m = (sig ++ sig') :< y in ?fsdf
 
 public export
 globNameElem : {0 sig : Sig gs} -> {0 i : Item sig'} -> ItemIn sig i -> Elem (i.arity ** i.globName) gs

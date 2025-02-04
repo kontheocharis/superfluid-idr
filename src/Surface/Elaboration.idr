@@ -82,7 +82,7 @@ elabSig (MkPSig [<]) = pure $ Evidence _ Lin
 elabSig (MkPSig (sig :< it)) = do 
   Evidence _ sig' <- elabSig (MkPSig sig)
   Evidence _ it' <- elabSig' it sig'
-  pure $ Evidence _ (sig' ++ it')
+  pure $ Evidence _ it'
   where
     elabSig' : (i : PItem) -> Sig gs -> m (Exists (\ps => Sig (gs :< (ps ** i.name))))
     elabSig' it sig = globally (snd $ elabItem it) (MkContext sig [<]) >>= \g => pure $ Evidence _ g.global
