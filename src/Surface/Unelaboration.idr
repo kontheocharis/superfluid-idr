@@ -95,6 +95,7 @@ Show TcError where
   show (ExpectedPi (Val _) t t') = "Expected function type, got " ++ show t ++ " (expanded: " ++ show t' ++ ")"
   show (Mismatch (Val bs) a b) = "Mismatch: " ++ show a ++ " vs " ++ show b
   show (NameNotFound n) = "Name " ++ show n ++ " not found"
+  show (ExpectedFamily (Val _) t) = "Expected family (type ending in U), but got " ++ show t
 
 public export
 Show ElabError where

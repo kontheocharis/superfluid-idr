@@ -82,8 +82,7 @@ quote sig s (VLam n (Cl _ env t)) = SLam n $ quote sig (SS s) (eval sig (weakenE
 quote sig s (VRigid l sp) = sAppSpine (SVar (lvlToIdx s l)) (quoteSpine sig s sp)
 quote sig s (VPi n a (Cl _ env t)) = SPi n (quote sig s a) (quote sig (SS s) (eval sig (weakenEnv env :< VVar (lastLvl s)) t))
 quote sig s VU = SU
-quote sig s (VGlob n sp pp Nothing) = sAppSpine (SGlob n (quoteSpine sig s sp)) (quoteSpine sig s pp)
-quote sig s (VGlob n sp pp (Just t)) = quote sig s t
+quote sig s (VGlob n sp pp _) = sAppSpine (SGlob n (quoteSpine sig s sp)) (quoteSpine sig s pp)
 
 public export covering
 nf : Size ns -> STm gs ns -> STm gs ns

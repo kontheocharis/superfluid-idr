@@ -139,7 +139,7 @@ Show PTm where
         Just ty => "(" ++ show n ++ " : " ++ show ty ++ ")"
       ) args) ++ " => " ++ show ret
   show t@(PApp _ _) = let (s, sp) = pGatherApps t in showAtomic s ++ " " ++ joinBy " " (cast $ map showAtomic sp)
-  show (PPi (MkName "_") a b) = show a ++ " -> " ++ show b
+  show (PPi (MkName "_") a b) = showAtomic a ++ " -> " ++ show b
   show (PPi n a b) = "(" ++ show n ++ " : " ++ show a ++ ") -> " ++ show b
   show (PLet n Nothing v t) = "let " ++ show n ++ " = " ++ show v ++ "; " ++ show t
   show (PLet n (Just ty) v t) = "let " ++ show n ++ " : " ++ show ty ++ " = " ++ show v ++ "; " ++ show t
