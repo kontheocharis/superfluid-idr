@@ -177,7 +177,7 @@ lam : (Tc m) => {auto _ : IsTmMode md}
   -> TmTypechecker m Check (gs, ns, bs)
 lam n f = InCheck $ \ctx => \ty => case unfoldFully ctx.global ty of
   VPi n' a b => do
-    t <- check f (mapLocal (\l => Bind l n a) ctx) (applyRen ctx.local.bindsSize b)
+    t <- check f (mapLocal (\l => Bind l n a) ctx) (applyRen ctx.globEnv ctx.local.bindsSize b)
     pure (SLam n t)
   ty' => tcError $ ExpectedPi ctx.local.binds ty ty'
   
@@ -189,7 +189,7 @@ typedLam : (Tc m) => {auto _ : IsTmMode md}
   -> TmTypechecker m Infer (gs, ns, bs) 
 typedLam n a f = InInfer $ \ctx => do
     a' <- check a ctx VU
-    let va = eval ctx.local.env a'
+    let va = eval ctx.globEnv ctx.local.env a'
     (t, b) <- infer f (mapLocal (\l => Bind l n va) ctx)
     pure (SLam n t, VPi n va (closeVal (SS SZ) (idEnv {s = ctx.local.bindsSize}) b))
 
@@ -201,7 +201,7 @@ letIn : (Tc m) => {auto _ : IsTmMode md}
   -> TmTypechecker m md (gs, ns, bs) 
 letIn n a b = mirror b $ \ctx => \ret => do
   (a', ty) <- infer a ctx
-  let va = eval ctx.local.env a'
+  let va = eval ctx.globEnv ctx.local.env a'
   (b', ret') <- run b (mapLocal (\l => Def l n ty va) ctx) ret
   pure (SLet n a' b', ret')
 
@@ -214,9 +214,9 @@ typedLetIn : (Tc m) => {auto _ : IsTmMode md}
   -> TmTypechecker m md (gs, ns, bs) 
 typedLetIn n ty a b = mirror b $ \ctx => \ret => do
   ty' <- check ty ctx VU
-  let vty = eval ctx.local.env ty'
+  let vty = eval ctx.globEnv ctx.local.env ty'
   a' <- check a ctx vty
-  let va = eval ctx.local.env a'
+  let va = eval ctx.globEnv ctx.local.env a'
   (b', ret') <- run b (mapLocal (\l => Def l n vty va) ctx) ret
   pure (SLet n a' b', ret')
 
@@ -230,7 +230,7 @@ app f g = InInfer $ \ctx => do
   case unfoldFully ctx.global s of
     VPi n a b => do
       g' <- check g ctx a
-      pure (SApp f' n g', b $$ [< eval ctx.local.env g'])
+      pure (SApp f' n g', appClosure ctx.globEnv b [< eval ctx.globEnv ctx.local.env g'])
     s' => tcError $ ExpectedPi ctx.local.binds s s'
 
 public export covering
@@ -241,7 +241,7 @@ pi : (Tc m) => {auto _ : IsTmMode md} -> {auto _ : IsTmMode md'}
   -> TmTypechecker m Infer (gs, ns, bs) 
 pi n a b = InInfer $ \ctx => do
   a' <- check a ctx VU
-  b' <- check b (mapLocal (\l => Bind l n (eval l.env a')) ctx) VU
+  b' <- check b (mapLocal (\l => Bind l n (eval ctx.globEnv l.env a')) ctx) VU
   pure (SPi n a' b', VU)
 
 public export
@@ -281,7 +281,7 @@ tel [<] ctx = pure (ctx, [<])
 tel ((:<) ts (n, t)) ctx = do
   (ctx', ts') <- tel ts ctx
   t' <- check t ctx' VU
-  let vty = eval ctx'.local.env t'
+  let vty = eval ctx'.globEnv ctx'.local.env t'
   let cty = Cl ts'.size ctx.local.env t'
   pure (mapLocal (\l => Bind l n vty) ctx', ts' :< (n, cty))
   
@@ -311,7 +311,7 @@ defItem : (Tc m)
 defItem n params ty tm = InItem $ \ctx => do
   (ctx', params') <- tel' params ctx
   ty' <- check ty ctx' VU
-  let vty = eval ctx'.local.env ty'
+  let vty = eval ctx'.globEnv ctx'.local.env ty'
   let Val ps = ctx'.local.names
   tm' <- check tm (extendGlobal (\sig => sig :< Def (MkDefItem n params' vty Nothing)) ctx') (globWeaken vty)
   pure (extendGlobal (\sig => sig :< Def (MkDefItem n params' vty (Just tm'))) ctx)
@@ -326,6 +326,6 @@ primItem n params ty = InItem $ \ctx => do
   (ctx', params') <- tel' params ctx
   ty' <- check ty ctx' VU
   let Val ps = ctx'.local.names
-  let vty = eval ctx'.local.env ty'
+  let vty = eval ctx'.globEnv ctx'.local.env ty'
   pure (extendGlobal (\sig => sig :< Prim (MkPrimItem n params' vty)) ctx)
   

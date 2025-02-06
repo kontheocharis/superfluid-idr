@@ -58,7 +58,7 @@ evalTerm ctx s = do
         putStrLn $ "  " ++ show err
         exitWith (ExitFailure 1)
   (tm, ty) <- evalStateT dummyLoc $ infer (elab Infer parsed) ctx
-  let val = eval ctx.local.env tm
+  let val = eval ctx.globEnv ctx.local.env tm
   putStrLn $ "Raw: " ++ show parsed
   putStrLn $ "Type: " ++ show ty
   putStrLn $ "Value: " ++ show val

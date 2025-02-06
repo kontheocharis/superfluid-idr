@@ -22,23 +22,24 @@ mutual
   public export covering
   convert : (sig : Sig gs) -> (s : Size bs) -> VTm gs bs -> VTm gs bs -> Bool
   convert sig _ VU VU = True
-  convert sig s (VPi n a b) (VPi n' a' b') = convert sig s a a' && convert sig (SS s) (applyRen s b) (apply s b')
-  convert sig s (VLam _ t) (VLam _ t') = convert sig (SS s) (applyRen s t) (apply s t')
-  convert sig s (VLam n t) u = convert sig (SS s) (apply s t) (app (weaken u) n (VVar (lastLvl s)))
-  convert sig s u (VLam n t) = convert sig (SS s) (app (weaken u) n (VVar (lastLvl s))) (apply s t)
+  convert sig s (VPi n a b) (VPi n' a' b') = convert sig s a a'
+    && convert sig (SS s) (applyRen (asGlobEnv sig) s b) (apply (asGlobEnv sig) s b')
+  convert sig s (VLam _ t) (VLam _ t') = convert sig (SS s) (applyRen (asGlobEnv sig) s t) (apply (asGlobEnv sig) s t')
+  convert sig s (VLam n t) u = convert sig (SS s) (apply (asGlobEnv sig) s t) (app (asGlobEnv sig) (weaken u) n (VVar (lastLvl s)))
+  convert sig s u (VLam n t) = convert sig (SS s) (app (asGlobEnv sig) (weaken u) n (VVar (lastLvl s))) (apply (asGlobEnv sig) s t)
   convert sig s (VRigid l sp) (VRigid l' sp') = l == l' && convertSpine sig s sp sp'
-  convert sig s t@(VGlob g sp pp) t'@(VGlob g' sp' pp') with (match g g')
+  convert sig s t@(VGlob g sp pp u) t'@(VGlob g' sp' pp' u') with (match g g')
     _ | True = convertSpine sig s sp sp' && convertSpine sig s pp pp'
-    _ | False = case unfold sig g' of
-        Just g'' => convert sig s t (appSpine (eval sp' g'') pp')
-        Nothing => case unfold sig g of
-          Just g' => convert sig s (appSpine (eval sp g') pp) t'
+    _ | False = case u of
+        Just u => convert sig s (force u) t'
+        Nothing => case u' of
+          Just u' => convert sig s t (force u')
           Nothing => False
-  convert sig s t (VGlob g' sp' pp') = case unfold sig g' of
-    Just g'' => convert sig s t (appSpine (eval sp' g'') pp')
+  convert sig s t (VGlob g' sp' pp' t') = case t' of
+    Just t' => convert sig s t t'
     Nothing => False
-  convert sig s (VGlob g sp pp) t' = case unfold sig g of
-    Just g' => convert sig s (appSpine (eval sp g') pp) t' 
+  convert sig s (VGlob g sp pp t) t' = case t of
+    Just t => convert sig s t t' 
     Nothing => False
   convert sig s _ _ = False
 

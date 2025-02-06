@@ -8,7 +8,6 @@ import Data.Fin
 import Data.Nat
 import Data.List1
 
-
 -- | A literal
 public export
 data Lit

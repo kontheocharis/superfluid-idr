@@ -20,11 +20,11 @@ unelab : {ns : Names} -> STm gs ns -> PTm
 
 covering
 unelabVal : {ns : Names} -> VTm gs ns -> PTm
-unelabVal v = unelab (quote ns.size v)
+unelabVal v = unelab (quote noReplace ns.size v)
 
 covering
 unelabClosure : {ns : Names} -> {us : Names} -> Closure gs us ns -> PTm
-unelabClosure {ns} cl = unelabVal $ apply ns.size cl
+unelabClosure {ns} cl = unelabVal $ apply noReplace ns.size cl
 
 public export
 unelabSpine : {ns : Names} -> Spine (STm gs) ps ns -> SnocList PTm
@@ -82,7 +82,7 @@ covering
 public export
 covering
 (ns : Names) => Show (VTm gs ns) where
-  show t = show (quote ns.size t)
+  show t = show (quote noReplace ns.size t)
 
 public export
 covering

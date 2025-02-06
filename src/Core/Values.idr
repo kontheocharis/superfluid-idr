@@ -38,7 +38,10 @@ data VTm where
   VRigid : Lvl ns -> Spine (VTm gs) ps ns -> VTm gs ns
   VPi : (n : Name) -> VTy gs ns -> Closure gs [< n] ns -> VTm gs ns
   VU : VTm gs ns
-  VGlob : (n : GlobNameIn gs ps) -> Spine (VTm gs) ps ns -> Spine (VTm gs) qs ns -> VTm gs ns
+  VGlob : (n : GlobNameIn gs ps) -> Spine (VTm gs) ps ns
+    -> Spine (VTm gs) qs ns
+    -> Maybe (Lazy (VTm gs ns)) -- glued
+    -> VTm gs ns
 
 VTy = VTm
 

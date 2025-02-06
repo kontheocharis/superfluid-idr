@@ -11,6 +11,11 @@ mutual
   public export
   weakenClosure : Closure gs n ns -> Closure gs n (ns :< n')
   weakenClosure (Cl vs env t) = Cl vs (weakenSpine env) t
+  
+  public export
+  weakenMaybeLazyVTm : Maybe (Lazy (VTm gs ns)) -> Maybe (Lazy (VTm gs (ns :< n)))
+  weakenMaybeLazyVTm (Just t) = Just $ delay (weakenVTm (assert_smaller (Just t) (force t)))
+  weakenMaybeLazyVTm Nothing = Nothing
 
   public export
   weakenVTm : VTm gs ns -> VTm gs (ns :< n)
@@ -18,7 +23,7 @@ mutual
   weakenVTm (VRigid i sp) = VRigid (weaken i) (weakenSpine sp)
   weakenVTm (VPi n a cl) = VPi n (weakenVTm a) (weakenClosure cl)
   weakenVTm VU = VU
-  weakenVTm (VGlob n sp pp) = VGlob n (weakenSpine sp) (weakenSpine pp)
+  weakenVTm (VGlob n sp pp gl) = VGlob n (weakenSpine sp) (weakenSpine pp) (weakenMaybeLazyVTm gl)
 
   public export
   weakenSpine : Spine (VTm gs) ps ns -> Spine (VTm gs) ps (ns :< n)
@@ -117,6 +122,11 @@ mutual
   public export
   globReorderClosure : Closure (gs :< g :< g') n ns -> Closure (gs :< g' :< g) n ns
   globReorderClosure (Cl vs env t) = Cl vs (globReorderEnv env) (globReorderSTm t)
+  
+  public export
+  globWeakenMaybeLazyVTm : Maybe (Lazy (VTm gs ns)) -> Maybe (Lazy (VTm (gs :< g) ns))
+  globWeakenMaybeLazyVTm (Just t) = Just $ delay (globWeakenVTm (assert_smaller (Just t) (force t)))
+  globWeakenMaybeLazyVTm Nothing = Nothing
 
   public export
   globWeakenVTm : VTm gs ns -> VTm (gs :< g) ns
@@ -124,7 +134,12 @@ mutual
   globWeakenVTm (VRigid i sp) = VRigid i (globWeakenVTmSpine sp)
   globWeakenVTm (VPi n a cl) = VPi n (globWeakenVTm a) (globWeakenClosure cl)
   globWeakenVTm VU = VU
-  globWeakenVTm (VGlob n sp pp) = VGlob (globWeaken n) (globWeakenVTmSpine sp) (globWeakenVTmSpine pp)
+  globWeakenVTm (VGlob n sp pp t) = VGlob (globWeaken n) (globWeakenVTmSpine sp) (globWeakenVTmSpine pp) (globWeakenMaybeLazyVTm t)
+
+  public export
+  globReorderMaybeLazyVTm : Maybe (Lazy (VTm (gs :< g :< g') ns)) -> Maybe (Lazy (VTm (gs :< g' :< g) ns))
+  globReorderMaybeLazyVTm (Just t) = Just $ delay (assert_total (globReorderVTm (force t)))
+  globReorderMaybeLazyVTm Nothing = Nothing
 
   public export
   globReorderVTm : VTm (gs :< g :< g') ns -> VTm (gs :< g' :< g) ns
@@ -132,7 +147,7 @@ mutual
   globReorderVTm (VRigid i sp) = VRigid i (globReorderVTmSpine sp)
   globReorderVTm (VPi n a cl) = VPi n (globReorderVTm a) (globReorderClosure cl)
   globReorderVTm VU = VU
-  globReorderVTm (VGlob n sp pp) = VGlob (globReorder n) (globReorderVTmSpine sp) (globReorderVTmSpine pp)
+  globReorderVTm (VGlob n sp pp t) = VGlob (globReorder n) (globReorderVTmSpine sp) (globReorderVTmSpine pp) (globReorderMaybeLazyVTm t)
 
   public export
   idEnv : {auto s : Size ns} -> Env gs ns ns

@@ -204,11 +204,18 @@ record Context (0 gs : GlobNames) (0 ns : Names) (0 bs : Names) where
   constructor MkContext
   global : Sig gs
   local : Ctx gs ns bs
-
+  
 public export
-vGlob : {sig : Sig gs} -> {0 i : Item sig'} -> ItemIn sig i -> Spine (VTm gs) i.arity bs -> VTm gs bs
-vGlob {sig = sig} {i = i} p sp = let it = getItem p in
-  VGlob (MkGlobNameIn it.value.globName (rewrite it.identity in globNameElem p)) (rewrite it.identity in sp) [<]
+asGlobEnv : Sig gs -> GlobEnv gs
+
+public export covering
+vGlob : {sig : Sig gs} -> {0 i : Item sig'} -> Size bs -> ItemIn sig i -> Spine (VTm gs) i.arity bs -> VTm gs bs
+vGlob {sig = sig} {i = i} sz p sp = let it = getItem p in
+  eval (asGlobEnv sig)
+    idEnv
+    (SGlob
+      (MkGlobNameIn it.value.globName (rewrite it.identity in globNameElem p))
+      (rewrite it.identity in quoteSpine (asGlobEnv sig) sz sp))
 
 public export
 mapLocal : (Ctx gs ns bs -> Ctx gs ns' bs') -> Context gs ns bs -> Context gs ns' bs'
@@ -259,6 +266,10 @@ public export
 (.env) (Def ctx _ _ tm) = ctx.env :< tm
 
 public export
+(.globEnv) : Context gs ns bs -> GlobEnv gs
+(.globEnv) (MkContext sig ctx) = asGlobEnv sig
+
+public export
 thisTerm : Ctx gs (ns :< n) bs -> VTerm gs bs
 thisTerm (Bind ctx _ ty) = MkVTerm (weaken ty) (VVar (lastLvl ctx.bindsSize))
 thisTerm (Def ctx _ ty tm) = MkVTerm ty tm
@@ -289,7 +300,7 @@ itemTy (Ctor {di = di} c) = case getDataItem di of
     let binds = (globWeakenByItem @{globWeakenForVTel} di d.params) ++. c.args in
     let paramSp = vHeres' d.params.size in
     let retSp = weakenN c.args.size paramSp ++ c.rets in
-    let ret = vGlob di retSp in
+    let ret = vGlob (paramSp.size + c.args.size) di retSp in
     vPis' binds ret
 
 public export covering
@@ -334,9 +345,9 @@ unfold sig n = case getGlob sig n of
   MkGetGlob (Def (MkDefItem name params ty (Just tm))) i Refl => Just $ globWeakenDefItemTm i tm
   _ => Nothing
 
+asGlobEnv sig = MkGlobEnv (\n => unfold sig n)
+
 public export covering
 unfoldFully : Sig gs -> VTm gs bs -> VTm gs bs
-unfoldFully sig t@(VGlob n sp pp) = case unfold sig n of
-  Just t' => appSpine (eval sp t') pp
-  _ => t
+unfoldFully sig (VGlob n sp pp (Just t')) = t'
 unfoldFully sig t = t
