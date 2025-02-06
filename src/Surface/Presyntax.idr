@@ -41,7 +41,7 @@ data PTm : Type where
 public export
 record PFields where
   constructor MkPFields
-  actual : PTel
+  actual : SnocList (Loc, Name, PTel, PTy)
 
 public export
 0 PClauses : Type
@@ -50,7 +50,7 @@ PClauses = SnocList (SnocList PPat, PTm)
 public export
 data PItem : Type where
   PDef : Name -> PTel -> PTy -> PTm -> PItem
-  PData : Name -> PTel -> PTy -> PFields -> PItem
+  PData : Name -> PTel -> PTel -> PFields -> PItem
   PPrim : Name -> PTel -> PTy -> PItem
   
 public export
@@ -74,6 +74,11 @@ pGatherApps : PTm -> (PTm, SnocList PTm)
 pGatherApps (PApp f x) = let (f', xs) = pGatherApps f in (f', xs :< x)
 pGatherApps (PLoc _ t) = pGatherApps t
 pGatherApps f = (f, [<])
+
+public export
+pGatherPis : PTy -> (PTel, PTy)
+pGatherPis (PPi n a b) = let (MkPTel ts, ret) = pGatherPis b in (MkPTel ([< (dummyLoc, n, a)] ++ ts), ret)
+pGatherPis t = (MkPTel [<], t)
 
 public export
 pGatherLams : PTm -> (List (Name, Maybe PTy), PTm)
@@ -106,13 +111,14 @@ Show PBranches where
 public export
 covering
 Show PFields where
-  show (MkPFields cs) = map (\(_, n, t) => show n ++ " : " ++ show t) cs.actual |> cast |> joinBy ",\n" 
+  show (MkPFields cs) = map (\(_, n, te, t) => show n ++ show te ++ " : " ++ show t) cs |> cast |> joinBy ",\n" 
 
 public export
 covering
 Show PItem where
   show (PDef n tel ty tm) = "def " ++ show n ++ show tel ++ " : " ++ show ty ++ " = " ++ show tm
-  show (PData n tel ty cs) = "data " ++ show n ++ show tel ++ " : " ++ show ty ++ " {" ++ indented (show cs) ++ "}"
+  show (PData n tel (MkPTel [<]) cs) = "data " ++ show n ++ show tel ++ " {" ++ indented (show cs) ++ "}"
+  show (PData n tel ind cs) = "data " ++ show n ++ show tel ++ " family" ++ show ind ++ " {" ++ indented (show cs) ++ "}"
   show (PPrim n tel ty) = "prim " ++ show n ++ show tel ++ " : " ++ show ty
   
 public export

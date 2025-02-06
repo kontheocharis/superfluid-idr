@@ -65,9 +65,17 @@ elab Infer (PName n) = named n
 elab Infer PU = u
 
 covering
-elabTel : (Elab m) => PTel -> Exists (\ps => TelTypechecker m Check (gs, ns, bs) ps)
+elabTel : (Elab m) => PTel -> Exists (\ps => TelTypechecker m (gs, ns, bs) ps)
 elabTel (MkPTel [<]) = Evidence _ [<]
 elabTel (MkPTel (ts :< (l, n, t))) = Evidence _ (snd (elabTel (MkPTel ts)) :< (n, InLoc l $ elab Check t))
+
+covering
+elabCtors : (Elab m) => PFields -> (Exists (\cs => CtorsTypechecker m (gs, ns, ns) cs))
+elabCtors (MkPFields [<]) = Evidence _ [<]
+elabCtors (MkPFields (cs :< (l, n, pr, ret))) =
+  let Evidence _ cs' = elabCtors (MkPFields cs) in
+  let t' = InLoc l $ elab Check ret in
+  Evidence _ (With cs' n (snd (elabTel pr)) t')
 
 covering
 elabItem : (Elab m)
@@ -75,7 +83,7 @@ elabItem : (Elab m)
   -> Exists (\gs' => Typechecker m Item (gs, [<], [<]) (gs', [<], [<]))
 elabItem (PDef n pr ty tm) = Evidence _ (defItem n (snd (elabTel pr)) (elab Check ty) (elab Check tm))
 elabItem (PPrim n pr ty) = Evidence _ (primItem n (snd (elabTel pr)) (elab Check ty))
-elabItem (PData n pr ty cs) = Evidence _ (dataItem n (snd (elabTel pr)) (?h1) (?h2))
+elabItem (PData n pr ind cs) = Evidence _ (dataItem n (snd (elabTel pr)) (snd (elabTel ind)) (snd (elabCtors cs)))
 
 public export covering
 elabSig : (Elab m) => PSig -> m (Exists (\gs => Sig gs))

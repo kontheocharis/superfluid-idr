@@ -158,7 +158,7 @@ located f p = MkParser $ \ts => case runParser p ts of
 -- Actual language:
 
 reserved : List String
-reserved = ["data", "def", "prim", "let", "case", "U"]
+reserved = ["data", "def", "prim", "let", "case", "U", "family"]
 
 ident : Parser String
 ident = do
@@ -257,10 +257,9 @@ dataItem = atom $ do
   symbol "data"
   n <- name
   params <- tel
-  symbol ":"
-  kind <- tm
+  indices <- (symbol "family" >> tel) <|> pure (MkPTel [<])
   ctors <- curlies $ fields
-  pure $ PData n params kind ctors
+  pure $ PData n params indices ctors
   
 defItem : Parser PItem
 defItem = atom $ do

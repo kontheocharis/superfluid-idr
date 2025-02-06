@@ -31,6 +31,11 @@ unelabSpine : {ns : Names} -> Spine (STm gs) ps ns -> SnocList PTm
 unelabSpine [<] = [<]
 unelabSpine (xs :< x) = unelabSpine xs :< unelab x
 
+covering
+unelabSpineVTm : {ns : Names} -> Spine (VTm gs) ps ns -> SnocList PTm
+unelabSpineVTm [<] = [<]
+unelabSpineVTm (xs :< x) = unelabSpineVTm xs :< unelabVal x
+
 unelab (SLam n t) = PLam n Nothing (unelab t)
 unelab (SPi n a b) = PPi n (unelab a) (unelab b)
 unelab (SApp f n x) = PApp (unelab f) (unelab x)
@@ -51,11 +56,12 @@ unelabItem _ (Def (MkDefItem n pr ty tm)) = pure . MkPSig . cast $ [(dummyLoc, P
   Nothing => PName (MkName "?"))]
 unelabItem sig (Data (MkDataItem n pr ind)) = do 
   ctors <- lookup n . toList <$> get
-  pure . MkPSig . cast $ [(dummyLoc, PData n (unelabTel pr) (pPis (unelabTel ind) PU) (fromMaybe (MkPFields (MkPTel [<])) ctors))]
+  pure . MkPSig . cast $ [(dummyLoc, PData n (unelabTel pr) (unelabTel ind) (fromMaybe (MkPFields [<]) ctors))]
 unelabItem _ (Prim (MkPrimItem n pr ty)) = pure . MkPSig . cast $ [(dummyLoc, PPrim n (unelabTel pr) (unelabVal ty))]
-unelabItem sig it@(Ctor (MkCtorItem n _ _)) = do
+unelabItem sig it@(Ctor (MkCtorItem n args ret)) = do
   let ty = unelabVal (itemTy it)
-  modify (modifyAt n (\(MkPFields (MkPTel ns)) => MkPFields (MkPTel (ns :< (dummyLoc, n, ty)))))
+  let (args, ret) = pGatherPis ty
+  modify (modifyAt n (\(MkPFields ns) => MkPFields (ns :< (dummyLoc, n, args, ret))))
   pure $ MkPSig [<]
   where
     modifyAt : (Eq a) => a -> (b -> b) -> SnocList (a, b) -> SnocList (a, b)
@@ -96,6 +102,7 @@ Show TcError where
   show (Mismatch (Val bs) a b) = "Mismatch: " ++ show a ++ " vs " ++ show b
   show (NameNotFound n) = "Name " ++ show n ++ " not found"
   show (ExpectedFamily (Val _) t) = "Expected family (type ending in U), but got " ++ show t
+  show (ExpectedData (Val _) t n) = "Expected return type in data family " ++ show n.name.name ++ ", but got " ++ show t
 
 public export
 Show ElabError where
