@@ -8,6 +8,7 @@ import Control.Monad.Trans
 import Data.List
 import Data.String
 import Data.DPair
+import Data.Fin
 
 %default covering
 
@@ -28,11 +29,17 @@ Show ParseError where
   show EndOfInput = "Unexpected end of input"
   show (UnexpectedChar c) = "Unexpected character: " ++ show c
   show (ReservedWord s) = "Reserved word: " ++ s
+  
+public export
+record ParserState where
+  constructor MkParserState
+  stream : List Char
+  pos : Fin (length stream)
 
 public export
 record Parser (a : Type) where
   constructor MkParser
-  runParser : List Char -> Either ParseError (a, List Char)
+  runParser : ParserState -> Either ParseError (a, ParserState)
 
 Functor Parser where
   map f p = MkParser $ \ts => case runParser p ts of
@@ -66,16 +73,25 @@ optional p = MkParser $ \ts => case runParser p ts of
   Left _ => Right (Nothing, ts)
   Right (a, ts') => Right (Just a, ts')
 
+indexNext : ParserState -> Maybe (Char, Lazy ParserState)
+indexNext (MkParserState [] pos) impossible
+indexNext (MkParserState (_ :: []) FZ) = Nothing
+indexNext (MkParserState (x :: y :: ys) FZ) = Just (y, MkParserState (x :: y :: ys) (FS FZ))
+indexNext (MkParserState (x :: xs) (FS n)) = case indexNext (MkParserState xs n) of
+  Nothing => Nothing
+  Just (c, MkParserState xs' n') => Just (c, MkParserState (x :: xs') (FS n'))
+
 peek : Parser (Maybe Char)
-peek = MkParser $ \ts => case ts of
-  [] => Right (Nothing, ts)
-  (c :: _) => Right (Just c, ts)
+peek = MkParser $ \ts => case indexNext ts of
+  Nothing => Right (Nothing, ts)
+  Just (c, _) => Right (Just c, ts)
+
 
 satisfy : (Char -> Bool) -> Parser Char
-satisfy p = MkParser $ \ts => case ts of
-  [] => Left EndOfInput
-  (c :: cs) => if p c
-    then Right (c, cs)
+satisfy p = MkParser $ \ts => case indexNext ts of
+  Nothing => Left EndOfInput
+  Just (c, p') => if p c
+    then Right (c, p')
     else Left $ UnexpectedChar c
 
 char : Char -> Parser ()
@@ -109,14 +125,21 @@ sepBy sep p = do
     p
   pure (a :: as)
 
+string : String -> Parser ()
+string s = traverse_ char (unpack s)
+
 whitespace : Parser ()
-whitespace = many (satisfy isSpace) *> pure ()
+whitespace =  do
+  _ <- many (satisfy isSpace)
+  (( do
+      p <- string "--"
+      _ <- many (satisfy (\c => c /= '\n' && c /= '\r'))
+      whitespace
+    ) <|> (pure ()))
+  pure ()
 
 atom : Parser a -> Parser a
 atom p = p <* whitespace
-
-string : String -> Parser ()
-string s = traverse_ char (unpack s)
 
 symbol : String -> Parser ()
 symbol s = atom $ string s
@@ -126,6 +149,11 @@ parens p = between (symbol "(") (symbol ")") p
 
 curlies : Parser a -> Parser a
 curlies p = between (symbol "{") (symbol "}") p
+
+located : (Loc -> a -> b) -> Parser a -> Parser b
+located f p = MkParser $ \ts => case runParser p ts of
+  Left s => Left s
+  Right (a, ts') => Right (f (MkLoc ts.stream ts.pos) a, ts')
 
 -- Actual language:
 
@@ -158,12 +186,12 @@ param = atom . parens $ do
 
 tel : Parser PTel
 tel = do 
-  ps <- many param
+  ps <- many (located (,) param)
   pure $ MkPTel (cast ps)
 
 fields : Parser PFields
 fields = do 
-  fs <- sepBy (symbol ",") $ do
+  fs <- sepBy (symbol ",") . located (,) $ do
     n <- name
     symbol ":"
     t <- tm
@@ -173,12 +201,12 @@ fields = do
 lam : Parser PTm
 lam = atom $ do
   symbol "\\"
-  ns <- (Right <$> many1 name) <|> (Left <$> tel)
+  ns <- (Right <$> many1 (located (,) name)) <|> (Left <$> tel)
   symbol "=>"
   t <- tm
   case ns of
-    Left ns => pure $ foldr (\(n, ty) => \t => PLam n (Just ty) t) t ns.actual
-    Right ns => pure $ foldr (\n => \t => PLam n Nothing t) t ns.fst
+    Left ns => pure $ foldr (\(l, n, ty) => \t => PLoc l $ PLam n (Just ty) t) t ns.actual
+    Right ns => pure $ foldr (\(l, n) => \t => PLoc l $ PLam n Nothing t) t ns.fst
 
 app : Parser PTm
 app = atom $ do
@@ -188,10 +216,10 @@ app = atom $ do
 
 pi : Parser PTm
 pi = atom $ do
-  ns <- (singleTm >>= \t => pure (MkPTel (cast [(MkName "_", t)]))) <|> tel
+  ns <- (located (,) singleTm >>= \(l, t) => pure (MkPTel (cast [(l, MkName "_", t)]))) <|> tel
   symbol "->"
   t <- tm
-  pure $ foldr (\(n, ty) => \t => PPi n ty t) t ns.actual
+  pure $ foldr (\(l, n, ty) => \t => PLoc l $ PPi n ty t) t ns.actual
 
 u : Parser PTm
 u = atom $ symbol "U" *> pure PU
@@ -213,16 +241,16 @@ caseOf : Parser PTm
 caseOf = atom $ do
   symbol "case"
   t <- tm
-  brs <- curlies . sepBy (symbol ",") $ do
+  brs <- curlies . sepBy (symbol ",") . located (,) $ do
     p <- tm
     symbol "=>"
     t <- tm
     pure (p, t)
   pure $ PCase t (MkPBranches (cast brs))
   
-tm = lam <|> letIn <|> caseOf <|> pi <|> app <|> singleTm
+tm = located PLoc $ lam <|> letIn <|> caseOf <|> pi <|> app <|> singleTm
 
-singleTm = u <|> (PName <$> name) <|> parens tm <|> curlies tm
+singleTm = located PLoc $ u <|> (PName <$> name) <|> parens tm <|> curlies tm
 
 dataItem : Parser PItem
 dataItem = atom $ do
@@ -259,11 +287,12 @@ item = dataItem <|> defItem <|> primItem
 
 public export
 sig : Parser PSig
-sig = MkPSig <$> cast <$> many item
+sig = MkPSig <$> cast <$> many (located (,) item)
 
 public export
 parse : Parser a -> String -> Either ParseError a
-parse p s = case runParser (whitespace >> p) (unpack s) of
-  Left s => Left s
-  Right (a, []) => Right a
-  Right (_, _) => Left TrailingChars
+parse p s = case unpack s of
+  [] => Left EndOfInput
+  (c :: cs) => case runParser (whitespace >> p) (MkParserState (c :: cs) FZ) of
+    Left s => Left s
+    Right (a, MkParserState (c :: cs') l) => if l == last then Right a else Left TrailingChars

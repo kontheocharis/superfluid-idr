@@ -16,19 +16,27 @@ import Core.Values
 import Core.Evaluation
 import Core.Typechecking
 import Core.Definitions
+import Control.Monad.State
 
 %default covering
 
-Tc IO where
+Tc (StateT Loc IO) where
+  getLoc = get
+  setLoc l u = put l >> u
+
   tcError err = do
+    l <- get
     putStrLn "Type error:"
     putStrLn $ "  " ++ show err
+    putStrLn $ "  at " ++ show l
     exitWith (ExitFailure 1)
 
-Elab IO where
+Elab (StateT Loc IO) where
   elabError err = do
+    l <- get
     putStrLn "Elaboration error:"
     putStrLn $ "  " ++ show err
+    putStrLn $ "  at " ++ show l
     exitWith (ExitFailure 1)
     
 processProgram : String -> IO ()
@@ -38,7 +46,7 @@ processProgram s = do
         putStrLn "Parse error:"
         putStrLn $ "  " ++ show err
         exitWith (ExitFailure 1)
-  (Evidence _ sig) <- elabSig parsed
+  (Evidence _ sig) <- evalStateT dummyLoc $ elabSig parsed
   putStrLn $ "-- Raw program:\n" ++ show parsed
   putStrLn $ "-- Checked program:\n" ++ show sig
 
@@ -49,7 +57,7 @@ evalTerm ctx s = do
         putStrLn "Parse error:"
         putStrLn $ "  " ++ show err
         exitWith (ExitFailure 1)
-  (tm, ty) <- infer (elab Infer parsed) ctx
+  (tm, ty) <- evalStateT dummyLoc $ infer (elab Infer parsed) ctx
   let val = eval ctx.local.env tm
   putStrLn $ "Raw: " ++ show parsed
   putStrLn $ "Type: " ++ show ty
@@ -73,7 +81,6 @@ showUsage = do
   putStrLn "  compiler -e <expr>      Evaluate an expression"
   putStrLn "  compiler -h             Show this help message"
 
-partial
 main : IO ()
 main = do
   args <- getArgs

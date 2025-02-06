@@ -18,7 +18,7 @@ mutual
   weakenVTm (VRigid i sp) = VRigid (weaken i) (weakenSpine sp)
   weakenVTm (VPi n a cl) = VPi n (weakenVTm a) (weakenClosure cl)
   weakenVTm VU = VU
-  weakenVTm (VGlob n sp) = VGlob n (weakenSpine sp)
+  weakenVTm (VGlob n sp pp) = VGlob n (weakenSpine sp) (weakenSpine pp)
 
   public export
   weakenSpine : Spine (VTm gs) ps ns -> Spine (VTm gs) ps (ns :< n)
@@ -124,7 +124,7 @@ mutual
   globWeakenVTm (VRigid i sp) = VRigid i (globWeakenVTmSpine sp)
   globWeakenVTm (VPi n a cl) = VPi n (globWeakenVTm a) (globWeakenClosure cl)
   globWeakenVTm VU = VU
-  globWeakenVTm (VGlob n sp) = VGlob (globWeaken n) (globWeakenVTmSpine sp)
+  globWeakenVTm (VGlob n sp pp) = VGlob (globWeaken n) (globWeakenVTmSpine sp) (globWeakenVTmSpine pp)
 
   public export
   globReorderVTm : VTm (gs :< g :< g') ns -> VTm (gs :< g' :< g) ns
@@ -132,7 +132,7 @@ mutual
   globReorderVTm (VRigid i sp) = VRigid i (globReorderVTmSpine sp)
   globReorderVTm (VPi n a cl) = VPi n (globReorderVTm a) (globReorderClosure cl)
   globReorderVTm VU = VU
-  globReorderVTm (VGlob n sp) = VGlob (globReorder n) (globReorderVTmSpine sp)
+  globReorderVTm (VGlob n sp pp) = VGlob (globReorder n) (globReorderVTmSpine sp) (globReorderVTmSpine pp)
 
   public export
   idEnv : {auto s : Size ns} -> Env gs ns ns

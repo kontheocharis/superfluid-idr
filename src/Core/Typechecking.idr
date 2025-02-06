@@ -33,12 +33,14 @@ isTmMode Item = No (\case Refl impossible)
 
 public export
 data TcError : Type where
-  ExpectedPi : TcError
+  ExpectedPi : Singleton bs -> (original : VTm gs bs) -> (unfolded : VTm gs bs) -> TcError
   Mismatch : Singleton bs -> VTm gs bs -> VTm gs bs -> TcError
   NameNotFound : (n : Name) -> TcError
 
 public export
 interface (Monad m) => Tc m where
+  setLoc : Loc -> m a -> m a
+  getLoc : m Loc
   tcError : TcError -> m a
 
 public export
@@ -67,6 +69,10 @@ data Typechecker : TypecheckerKind where
   InInfer : (Tc m)
     => (Context gs ns bs -> m (STm gs ns, VTy gs bs))
     -> Typechecker m Infer (gs, ns, bs) (gs, ns, bs)
+  InLoc : (Tc m)
+    => Loc
+    -> Typechecker m md i i'
+    -> Typechecker m md i i'
   InBind : (Tc m)
     => (Context gs ns bs -> m (
           Context gs (ns ++ pns) (bs ++ pbs),
@@ -87,7 +93,7 @@ TmTypechecker m md i = Typechecker m md i i
 public export covering
 convertOrError : (Tc m) => Context gs ns bs -> VTy gs bs -> VTy gs bs -> m ()
 convertOrError ctx a b =
-  if convert ctx.local.bindsSize a b
+  if convert ctx.global ctx.local.bindsSize a b
     then pure ()
     else tcError (Mismatch ctx.local.binds a b)
 
@@ -99,6 +105,17 @@ switch (InInfer f) = InCheck $ \ctx => \ty => do
   pure t
 switch (InError f) = InError f
 switch InTrivial impossible
+switch (InLoc l t) = InLoc l (switch t)
+
+public export
+run : (Tc m) => TmTypechecker m md (gs, ns, bs)
+  -> Context gs ns bs
+  -> TcModeInput md gs bs
+  -> m (STm gs ns, VTy gs bs)
+run (InCheck f) ctx (CheckInput ty) = f ctx ty >>= \t => pure (t, ty)
+run (InInfer f) ctx InferInput = f ctx
+run (InError f) ctx _ = f
+run (InLoc l t) ctx i = setLoc l $ run t ctx i
 
 public export covering
 check : (Tc m) => {auto t : IsTmMode md}
@@ -110,7 +127,9 @@ check (InCheck f) ctx ty = f ctx ty
 check (InInfer f) ctx ty = case switch (InInfer f) of
   InCheck f' => f' ctx ty
   InError f => f
+  InLoc l t => setLoc l $ check t ctx ty
 check (InError f) ctx ty = f
+check (InLoc l t) ctx ty = setLoc l $ check t ctx ty
 check InTrivial impossible
 
 public export
@@ -119,20 +138,13 @@ infer : (Tc m) => Typechecker m Infer (gs, ns, bs) (gs, ns, bs)
   -> m (STm gs ns, VTy gs bs)
 infer (InInfer f) ctx = f ctx
 infer (InError f) ctx = f
+infer (InLoc l t) ctx = setLoc l $ infer t ctx
 
 public export
 globally : (Tc m) => Typechecker m Item (gs, ns, bs) (gs', ns', bs') -> Context gs ns bs -> m (Context gs' ns' bs')
 globally (InItem f) ctx = f ctx
 globally (InError f) ctx = f
-
-public export
-run : (Tc m) => TmTypechecker m md (gs, ns, bs)
-  -> Context gs ns bs
-  -> TcModeInput md gs bs
-  -> m (STm gs ns, VTy gs bs)
-run (InCheck f) ctx (CheckInput ty) = f ctx ty >>= \t => pure (t, ty)
-run (InInfer f) ctx InferInput = f ctx
-run (InError f) ctx _ = f
+globally (InLoc l t) ctx = setLoc l $ globally t ctx
 
 public export
 mirror : (Tc m) => {auto _ : IsTmMode md}
@@ -144,6 +156,7 @@ mirror (InCheck _) k = InCheck $ \ctx => \ty => do
   pure a
 mirror (InInfer _) k = InInfer $ \ctx => k ctx InferInput
 mirror (InError f) _ = InError f
+mirror (InLoc l t) k = InLoc l (mirror t k)
 
 public export
 var : (Tc m) => Idx ns -> TmTypechecker m Infer (gs, ns, bs)
@@ -162,13 +175,12 @@ lam : (Tc m) => {auto _ : IsTmMode md}
   -> (n : Name)
   -> (body : TmTypechecker m md (gs, ns :< n, bs :< n))
   -> TmTypechecker m Check (gs, ns, bs)
-lam n f = InCheck $ \ctx => \ty => case ty of
+lam n f = InCheck $ \ctx => \ty => case unfoldFully ctx.global ty of
   VPi n' a b => do
     t <- check f (mapLocal (\l => Bind l n a) ctx) (applyRen ctx.local.bindsSize b)
     pure (SLam n t)
-  _ => tcError ExpectedPi
+  ty' => tcError $ ExpectedPi ctx.local.binds ty ty'
   
-
 public export covering
 typedLam : (Tc m) => {auto _ : IsTmMode md}
   -> (n : Name)
@@ -214,12 +226,12 @@ app : (Tc m) => {auto _ : IsTmMode md}
   -> (arg : TmTypechecker m md (gs, ns, bs))
   -> TmTypechecker m Infer (gs, ns, bs) 
 app f g = InInfer $ \ctx => do
-  (f', a) <- infer f ctx
-  case a of
+  (f', s) <- infer f ctx
+  case unfoldFully ctx.global s of
     VPi n a b => do
       g' <- check g ctx a
       pure (SApp f' n g', b $$ [< eval ctx.local.env g'])
-    _ => tcError ExpectedPi
+    s' => tcError $ ExpectedPi ctx.local.binds s s'
 
 public export covering
 pi : (Tc m) => {auto _ : IsTmMode md} -> {auto _ : IsTmMode md'}
@@ -294,7 +306,7 @@ defItem : (Tc m)
   => (n : Name)
   -> (params : TelTypechecker m Check (gs, [<], [<]) ps)
   -> (ty : TmTypechecker m Check (gs, ps, ps))
-  -> (tm : TmTypechecker m Infer (gs :< (ps ** MkGlobName n DefGlob), ps, ps))
+  -> (tm : TmTypechecker m Check (gs :< (ps ** MkGlobName n DefGlob), ps, ps))
   -> Typechecker m Item (gs, [<], [<]) (gs :< (ps ** MkGlobName n DefGlob), [<], [<])
 defItem n params ty tm = InItem $ \ctx => do
   (ctx', params') <- tel' params ctx

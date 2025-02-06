@@ -42,20 +42,20 @@ unelab SU = PU
 public export covering
 unelabTel : {ns : Names} -> {ps : Names} -> VTel gs ps ns -> PTel
 unelabTel Lin = MkPTel [<]
-unelabTel (te :< (n, t)) = let MkPTel ts = unelabTel te in MkPTel (ts :< (n, unelabClosure t))
+unelabTel (te :< (n, t)) = let MkPTel ts = unelabTel te in MkPTel (ts :< (dummyLoc, n, unelabClosure t))
 
 public export covering
 unelabItem : (sig : Sig gs) -> Item sig -> State (SnocList (Name, PFields)) PSig
-unelabItem _ (Def (MkDefItem n pr ty tm)) = pure . MkPSig . cast $ [PDef n (unelabTel pr) (unelabVal ty) $ case tm of
+unelabItem _ (Def (MkDefItem n pr ty tm)) = pure . MkPSig . cast $ [(dummyLoc, PDef n (unelabTel pr) (unelabVal ty) $ case tm of
   Just t => unelab t
-  Nothing => PName (MkName "?")]
+  Nothing => PName (MkName "?"))]
 unelabItem sig (Data (MkDataItem n pr ind)) = do 
   ctors <- lookup n . toList <$> get
-  pure . MkPSig . cast $ [PData n (unelabTel pr) (pPis (unelabTel ind) PU) (fromMaybe (MkPFields (MkPTel [<])) ctors)]
-unelabItem _ (Prim (MkPrimItem n pr ty)) = pure . MkPSig . cast $ [PPrim n (unelabTel pr) (unelabVal ty)]
+  pure . MkPSig . cast $ [(dummyLoc, PData n (unelabTel pr) (pPis (unelabTel ind) PU) (fromMaybe (MkPFields (MkPTel [<])) ctors))]
+unelabItem _ (Prim (MkPrimItem n pr ty)) = pure . MkPSig . cast $ [(dummyLoc, PPrim n (unelabTel pr) (unelabVal ty))]
 unelabItem sig it@(Ctor (MkCtorItem n _ _)) = do
   let ty = unelabVal (itemTy it)
-  modify (modifyAt n (\(MkPFields (MkPTel ns)) => MkPFields (MkPTel (ns :< (n, ty)))))
+  modify (modifyAt n (\(MkPFields (MkPTel ns)) => MkPFields (MkPTel (ns :< (dummyLoc, n, ty)))))
   pure $ MkPSig [<]
   where
     modifyAt : (Eq a) => a -> (b -> b) -> SnocList (a, b) -> SnocList (a, b)
@@ -75,24 +75,24 @@ unelabSig s = evalState [<] (unelabSig' s)
       pure . MkPSig $ rest ++ it'
 
 public export
-partial covering
+covering
 (ns : Names) => Show (STm gs ns) where
   show t = show (unelab t)
 
 public export
-partial covering
+covering
 (ns : Names) => Show (VTm gs ns) where
   show t = show (quote ns.size t)
 
 public export
-partial covering
+covering
 Show (Sig gs) where
   show t = show (unelabSig t)
 
 public export
-partial covering
+covering
 Show TcError where
-  show ExpectedPi = "Expected function type"
+  show (ExpectedPi (Val _) t t') = "Expected function type, got " ++ show t ++ " (expanded: " ++ show t' ++ ")"
   show (Mismatch (Val bs) a b) = "Mismatch: " ++ show a ++ " vs " ++ show b
   show (NameNotFound n) = "Name " ++ show n ++ " not found"
 

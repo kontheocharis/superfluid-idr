@@ -8,6 +8,7 @@ import Decidable.Equality
 import Control.Function
 import Data.DPair
 import Data.SnocList.Elem
+import Decidable.Decidable
 
 public export
 record Name where
@@ -48,6 +49,17 @@ public export
 (.size) [<] = SZ
 (.size) (xs :< x) = SS xs.size
 
+DecEq (Size ns) where
+  decEq SZ SZ = Yes Refl
+  decEq (SS n) (SS m) = case decEq n m of
+    Yes Refl => Yes Refl
+    No contra => No (\case Refl => contra Refl)
+  decEq SZ (SS m) impossible
+  decEq (SS n) SZ impossible
+  
+Eq (Size ns) where
+  (==) a b = isYes $ decEq a b
+
 public export
 data GlobKind : Type where
   CtorGlob : GlobKind
@@ -79,6 +91,10 @@ DecEq GlobKind where
   decEq PrimGlob CtorGlob = No (\case Refl impossible)
   decEq PrimGlob DataGlob = No (\case Refl impossible)
   decEq PrimGlob DefGlob = No (\case Refl impossible)
+  
+public export
+Eq GlobKind where
+  (==) a b = isYes $ decEq a b
 
 public export
 Biinjective MkGlobName where
@@ -87,6 +103,10 @@ Biinjective MkGlobName where
 public export
 DecEq (GlobName ps) where
   decEq (MkGlobName n k) (MkGlobName n' k') = decEqCong2 (decEq n n') (decEq k k')
+  
+public export
+Eq (GlobName ps) where
+  (==) a b = isYes $ decEq a b
   
 public export
 0 WithIrrNamesN : (n : Nat) -> composeN n Named Type -> Type
@@ -113,8 +133,24 @@ public export
 record GlobNameIn (0 gs : GlobNames) (0 ps : Names) where
   constructor MkGlobNameIn
   name : GlobName ps
-  0 contained : Elem (ps ** name) gs
-
+  contained : Elem (ps ** name) gs
+  
+public export
+match : GlobNameIn gs ps -> GlobNameIn gs ps' -> Bool
+match (MkGlobNameIn n e) (MkGlobNameIn n' e') = elemToNat e == elemToNat e'
+  
+public export
+DecEq (GlobNameIn gs ps) where
+  decEq (MkGlobNameIn n e) (MkGlobNameIn n' e') = case decEq n n' of
+    Yes Refl => case decEq e e' of
+      Yes Refl => Yes Refl
+      No contra => No (\case Refl => contra Refl)
+    No contra => No (\case Refl => contra Refl)
+  
+public export
+Eq (GlobNameIn gs ps) where
+  (==) a b = isYes $ decEq a b
+  
 public export
 GlobKindNameIn : (kind : GlobKind) -> (0 gs : GlobNames) -> (0 ps : Names) -> Type
 GlobKindNameIn kind gs ps = Subset (GlobNameIn gs ps) (\(MkGlobNameIn n e) => kind = n.kind)

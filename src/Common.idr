@@ -2,6 +2,12 @@ module Common
 
 import Data.Singleton
 import Data.SnocList
+import Data.String
+import Data.List
+import Data.Fin
+import Data.Nat
+import Data.List1
+
 
 -- | A literal
 public export
@@ -15,6 +21,35 @@ Show Lit where
   show (StringLit s) = show s
   show (CharLit c) = show c
   show (NatLit n) = show n
+  
+-- Source location
+public export
+record Loc where
+  constructor MkLoc
+  src : List Char
+  pos : Fin (length src)
+  
+public export
+linesBefore : Loc -> List String
+linesBefore loc = lines (substr 0 (finToNat loc.pos) (pack loc.src))
+
+public export
+dummyLoc : Loc
+dummyLoc = MkLoc [' '] (FZ)
+
+public export
+(.row) : Loc -> Nat
+(.row) loc = length (linesBefore loc)
+
+public export
+(.col) : Loc -> Nat
+(.col) loc = case linesBefore loc of
+  [] => 1
+  (x::xs) => length (last (x::xs)) + 1
+
+export
+Show Loc where
+  show m = "line " ++ show m.row ++ ", column " ++ show m.col
 
 public export
 error : String -> a

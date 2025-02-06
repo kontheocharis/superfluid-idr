@@ -12,7 +12,6 @@ import Core.Syntax
 import Core.Values
 import Core.Evaluation
 import Core.Weakening
-import Core.Conversion
 
 namespace Sig
   public export
@@ -122,6 +121,22 @@ namespace Item
   data ItemIn : (sig : Sig gs) -> Item sig' -> Type where
     Here : {0 i : Item sig} -> ItemIn (sig :< i) i
     There : {0 i : Item sig} -> {0 j : Item sig'} -> ItemIn sig j -> ItemIn (sig :< i) j
+
+public export
+getItem : {sig : Sig gs} -> {0 i : Item sig'} -> ItemIn sig i -> Singleton i
+getItem {sig = (sig :< i)} p = case p of
+  Here => Val i
+  There p => getItem {sig = sig} p
+
+public export
+getDataItem : {sig : Sig gs} -> {0 d : DataItem sig'} -> ItemIn sig (Data d) -> Singleton d
+getDataItem i = case getItem i of
+  Val (Data d) => Val d
+
+(.arity) (Def d) = d.ps
+(.arity) (Data d) = d.ps ++ d.is
+(.arity) (Prim p) = p.ps
+(.arity) (Ctor {di = di} c) = let d = getDataItem di in d.value.ps ++ c.as
   
 public export
 globWeakenDefItem : DefItem sig -> DefItem (sig :< i)
@@ -145,6 +160,17 @@ globWeakenByItem : GlobWeaken f
   -> f gs ns
 globWeakenByItem Here u = globWeaken u
 globWeakenByItem (There p) u = globWeaken (globWeakenByItem p u)
+
+public export
+globWeakenDefItemTm : GlobWeaken f
+  => {0 sig : Sig gs}
+  -> {0 sig' : Sig gs'}
+  -> {0 d : DefItem sig'}
+  -> ItemIn sig (Def d)
+  -> f (gs' :< (d.ps ** MkGlobName d.name DefGlob)) ns
+  -> f gs ns
+globWeakenDefItemTm Here y = y
+globWeakenDefItemTm @{f} (There x) y = globWeaken $ globWeakenDefItemTm @{f} x y
   
 public export
 globWeakenCtor : {0 sig : Sig gs}
@@ -168,22 +194,6 @@ globNameElem Here = Here
 globNameElem (There p) = There (globNameElem p)
 
 public export
-getItem : {sig : Sig gs} -> {0 i : Item sig'} -> ItemIn sig i -> Singleton i
-getItem {sig = (sig :< i)} p = case p of
-  Here => Val i
-  There p => getItem {sig = sig} p
-
-public export
-getDataItem : {sig : Sig gs} -> {0 d : DataItem sig'} -> ItemIn sig (Data d) -> Singleton d
-getDataItem i = case getItem i of
-  Val (Data d) => Val d
-
-(.arity) (Def d) = d.ps
-(.arity) (Data d) = d.ps ++ d.is
-(.arity) (Prim p) = p.ps
-(.arity) (Ctor {di = di} c) = let d = getDataItem di in d.value.ps ++ c.as
-
-public export
 data Ctx : GlobNamed (Named (Named Type)) where
   Lin : Ctx gs Lin Lin
   Bind : (ctx : Ctx gs ns bs) -> (n : Name) -> (t : VTy gs bs) -> Ctx gs (ns :< n) (bs :< n)
@@ -198,7 +208,7 @@ record Context (0 gs : GlobNames) (0 ns : Names) (0 bs : Names) where
 public export
 vGlob : {sig : Sig gs} -> {0 i : Item sig'} -> ItemIn sig i -> Spine (VTm gs) i.arity bs -> VTm gs bs
 vGlob {sig = sig} {i = i} p sp = let it = getItem p in
-  VGlob (MkGlobNameIn it.value.globName (rewrite it.identity in globNameElem p)) (rewrite it.identity in sp)
+  VGlob (MkGlobNameIn it.value.globName (rewrite it.identity in globNameElem p)) (rewrite it.identity in sp) [<]
 
 public export
 mapLocal : (Ctx gs ns bs -> Ctx gs ns' bs') -> Context gs ns bs -> Context gs ns' bs'
@@ -283,9 +293,9 @@ itemTy (Ctor {di = di} c) = case getDataItem di of
     vPis' binds ret
 
 public export covering
-lookupItem : Size bs -> Sig gs -> (n : Name) -> Maybe (DPair Names (\ps => (GlobNameIn gs ps, VTy gs bs)))
+lookupItem : Size bs -> Sig gs -> (n : Name) -> Maybe (ps : Names ** (GlobNameIn gs ps, VTy gs bs))
 lookupItem s [<] _ = Nothing
-lookupItem s sig@((:<) sig' it) m = case decEq it.name m of
+lookupItem s sig@(sig' :< it) m = case decEq it.name m of
   Yes p => Just (it.arity ** (MkGlobNameIn it.globName Here, weakenTo s (globWeaken (itemTy it))))
   No q => map (\(ps ** (g, ty)) => (ps ** (MkGlobNameIn g.name (There g.contained), globWeaken ty))) (lookupItem s sig' m)
 
@@ -302,3 +312,31 @@ lookupName (MkContext sig ctx) m = case lookupLocal ctx m of
     Nothing => case lookupItem ctx.bindsSize sig m of
       Just (ps ** (g, t)) => FoundItem ps g t
       Nothing => NotFound
+      
+record GetGlob (0 ps : Names) (0 sig : Sig gs) where
+  constructor MkGetGlob
+  {0 gs' : GlobNames}
+  {0 sig' : Sig gs'}
+  item : Item sig'
+  itemIn : ItemIn sig item
+  sameArity : item.arity = ps
+      
+public export
+getGlob : (sig : Sig gs) -> GlobNameIn gs ps -> GetGlob ps sig
+getGlob [<] (MkGlobNameIn _ _) impossible
+getGlob sig@(sig' :< i) (MkGlobNameIn _ Here) = MkGetGlob i Here Refl
+getGlob sig@(sig' :< i) (MkGlobNameIn n (There p)) = case getGlob sig' (MkGlobNameIn n p) of
+  MkGetGlob i' p' Refl => MkGetGlob i' (There p') Refl
+
+public export
+unfold : Sig gs -> GlobNameIn gs ps -> Maybe (STm gs ps)
+unfold sig n = case getGlob sig n of
+  MkGetGlob (Def (MkDefItem name params ty (Just tm))) i Refl => Just $ globWeakenDefItemTm i tm
+  _ => Nothing
+
+public export covering
+unfoldFully : Sig gs -> VTm gs bs -> VTm gs bs
+unfoldFully sig t@(VGlob n sp pp) = case unfold sig n of
+  Just t' => appSpine (eval sp t') pp
+  _ => t
+unfoldFully sig t = t

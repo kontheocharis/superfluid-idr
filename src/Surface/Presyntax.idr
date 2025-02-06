@@ -20,12 +20,12 @@ PPat = PTm
 public export
 record PTel where
   constructor MkPTel
-  actual : SnocList (Name, PTy)
+  actual : SnocList (Loc, Name, PTy)
 
 public export
 record PBranches where
   constructor MkPBranches
-  actual : SnocList (PPat, PTm)
+  actual : SnocList (Loc, PPat, PTm)
 
 public export
 data PTm : Type where
@@ -34,6 +34,7 @@ data PTm : Type where
   PApp : PTm -> PTm -> PTm
   PPi : Name -> PTy -> PTy -> PTy
   PU : PTm
+  PLoc : Loc -> PTm -> PTm
   PLet : Name -> Maybe PTy -> PTm -> PTm -> PTm
   PCase : PTm -> PBranches -> PTm
   
@@ -61,7 +62,7 @@ public export
 public export
 record PSig where
   constructor MkPSig
-  actual : SnocList PItem
+  actual : SnocList (Loc, PItem)
 
 public export
 pApps : PTm -> SnocList PTm -> PTm
@@ -69,9 +70,21 @@ pApps f [<] = f
 pApps f (xs :< x) = PApp (pApps f xs) x
 
 public export
+pGatherApps : PTm -> (PTm, SnocList PTm)
+pGatherApps (PApp f x) = let (f', xs) = pGatherApps f in (f', xs :< x)
+pGatherApps (PLoc _ t) = pGatherApps t
+pGatherApps f = (f, [<])
+
+public export
+pGatherLams : PTm -> (List (Name, Maybe PTy), PTm)
+pGatherLams (PLam n ty t) = let (ns, t') = pGatherLams t in ((n, ty) :: ns, t')
+pGatherLams (PLoc _ t) = pGatherLams t
+pGatherLams t = ([], t)
+
+public export
 pPis : PTel -> PTy -> PTy
 pPis (MkPTel [<]) b = b
-pPis (MkPTel (ts :< (n, a))) b = pPis (assert_smaller (MkPTel (ts :< (n, a))) (MkPTel ts)) (PPi n a b)
+pPis (MkPTel (ts :< (l, n, a))) b = pPis (assert_smaller (MkPTel (ts :< (l, n, a))) (MkPTel ts)) (PPi n a b)
 
 public export
 Show PTm
@@ -83,17 +96,17 @@ public export
 covering
 Show PTel where
   show (MkPTel [<]) = ""
-  show (MkPTel ts) = " " ++ (map (\(n, t) => show n ++ " : " ++ show t) ts |> cast |> joinBy " ")
+  show (MkPTel ts) = " " ++ (map (\(_, n, t) => "(" ++ show n ++ " : " ++ show t ++ ")") ts |> cast |> joinBy " ")
 
 public export
 covering
 Show PBranches where
-  show (MkPBranches bs) = map (\(p, t) => show p ++ " => " ++ show t) bs |> cast |> joinBy ",\n"
+  show (MkPBranches bs) = map (\(_, p, t) => show p ++ " => " ++ show t) bs |> cast |> joinBy ",\n"
   
 public export
 covering
 Show PFields where
-  show (MkPFields cs) = map (\(n, t) => show n ++ " : " ++ show t) cs.actual |> cast |> joinBy ",\n" 
+  show (MkPFields cs) = map (\(_, n, t) => show n ++ " : " ++ show t) cs.actual |> cast |> joinBy ",\n" 
 
 public export
 covering
@@ -106,17 +119,32 @@ public export
 covering
 Show PSig where
   show (MkPSig [<]) = ""
-  show (MkPSig [< it]) = show it
-  show (MkPSig (sig :< it)) = show (MkPSig sig) ++ "\n\n" ++ show it
+  show (MkPSig [< (_, it)]) = show it
+  show (MkPSig (sig :< (_, it))) = show (MkPSig sig) ++ "\n\n" ++ show it
   
+isAtomic : PTm -> Bool
+isAtomic (PName _) = True
+isAtomic PU = True
+isAtomic (PLoc _ t) = isAtomic t
+isAtomic _ = False
+  
+covering
+showAtomic : PTm -> String
+
 covering
 Show PTm where
   show (PName n) = show n
-  show (PLam n Nothing t) = "\\" ++ show n ++ " => " ++ show t
-  show (PLam n (Just ty) t) = "\\(" ++ show n ++ " : " ++ show ty ++ ") => " ++ show t
-  show (PApp f x) = "(" ++ show f ++ " " ++ show x ++ ")"
-  show (PPi n a b) = "(" ++ show n ++ " : " ++ show a ++ ") -> (" ++ show b ++ ")"
+  show t@(PLam _ _ _) = let (args, ret) = pGatherLams t in "\\" ++ joinBy " " (map (\(n, ty) => case ty of
+        Nothing => show n
+        Just ty => "(" ++ show n ++ " : " ++ show ty ++ ")"
+      ) args) ++ " => " ++ show ret
+  show t@(PApp _ _) = let (s, sp) = pGatherApps t in showAtomic s ++ " " ++ joinBy " " (cast $ map showAtomic sp)
+  show (PPi (MkName "_") a b) = show a ++ " -> " ++ show b
+  show (PPi n a b) = "(" ++ show n ++ " : " ++ show a ++ ") -> " ++ show b
   show (PLet n Nothing v t) = "let " ++ show n ++ " = " ++ show v ++ "; " ++ show t
   show (PLet n (Just ty) v t) = "let " ++ show n ++ " : " ++ show ty ++ " = " ++ show v ++ "; " ++ show t
   show (PCase t bs) = "case " ++ show t ++ " {" ++ indented (show bs) ++ "}"
+  show (PLoc _ t) = show t
   show PU = "U"
+
+showAtomic t = if isAtomic t then show t else "(" ++ show t ++ ")"
