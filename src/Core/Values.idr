@@ -4,6 +4,7 @@ import Data.SnocList
 import Data.DPair
 import Data.SnocList.Elem
 import Data.SnocList
+import Data.Singleton
 
 import Common
 import Context
@@ -70,3 +71,8 @@ namespace VTel
   (.size) : VTel gs ps ns -> Size ps
   (.size) Lin = SZ
   (.size) (te :< _) = SS te.size
+  
+  public export
+  (.names) : VTel gs ps ns -> Singleton ps
+  (.names) Lin = Val [<]
+  (.names) (te :< t) = let Val ns = te.names in Val (ns :< fst t)

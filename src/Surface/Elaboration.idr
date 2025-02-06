@@ -72,18 +72,17 @@ elabTel (MkPTel (ts :< (l, n, t))) = Evidence _ (snd (elabTel (MkPTel ts)) :< (n
 covering
 elabItem : (Elab m)
   => (i : PItem)
-  -> Exists (\ps => Typechecker m Item (gs, [<], [<]) (gs :< (ps ** i.name), [<], [<]))
+  -> Exists (\gs' => Typechecker m Item (gs, [<], [<]) (gs', [<], [<]))
 elabItem (PDef n pr ty tm) = Evidence _ (defItem n (snd (elabTel pr)) (elab Check ty) (elab Check tm))
 elabItem (PPrim n pr ty) = Evidence _ (primItem n (snd (elabTel pr)) (elab Check ty))
-elabItem (PData n pr ty cs) = ?elabPData
+elabItem (PData n pr ty cs) = Evidence _ (dataItem n (snd (elabTel pr)) (?h1) (?h2))
 
 public export covering
 elabSig : (Elab m) => PSig -> m (Exists (\gs => Sig gs))
 elabSig (MkPSig [<]) = pure $ Evidence _ Lin
 elabSig (MkPSig (sig :< (l, it))) = do 
   Evidence _ sig' <- elabSig (MkPSig sig)
-  Evidence _ it' <- elabSig' l it sig'
-  pure $ Evidence _ it'
+  elabSig' l it sig'
   where
-    elabSig' : Loc -> (i : PItem) -> Sig gs -> m (Exists (\ps => Sig (gs :< (ps ** i.name))))
+    elabSig' : Loc -> (i : PItem) -> Sig gs -> m (Exists (\gs' => Sig gs'))
     elabSig' l it sig = globally (InLoc l $ snd (elabItem it)) (MkContext sig [<]) >>= \g => pure $ Evidence _ g.global

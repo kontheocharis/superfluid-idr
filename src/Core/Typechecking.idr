@@ -348,31 +348,43 @@ namespace CtorsTypechecker
       
 constructors : (Tc m) => {auto _ : IsTmMode md}
   -> CtorsTypechecker m md (gs, ns, bs) cs
-  -> {0 d : DataItem sig'}
-  -> (di : ItemIn ctx.global (Data d))
-  -> Typechecker m Item (gs, [<], [<]) (gs ++ cs, [<], [<])
+  -> (d : DataItem sig')
+  -> Context (gs :< (d.ps ++ d.is ** MkGlobName d.name DataGlob)) d.ps d.ps
+  -> m (Context (gs :< (d.ps ++ d.is ** MkGlobName d.name DataGlob) ++ cs) d.ps d.ps)
+  -- -> Typechecker m Item (gs :< (d.ps ** MkGlobName d.name DataGlob), d.ps, d.ps) ((gs :< (d.ps ** MkGlobName d.name DataGlob)) ++ cs, d.ps, d.ps)
 
 covering
-familyTyToIndices : (sig : Sig gs) -> Size bs -> VTm gs bs -> Maybe (ps : Names ** VTel gs ps bs)
+familyTyToIndices : (sig : Sig gs) -> Size bs -> VTm gs bs -> Maybe (is : Names ** VTel gs is bs)
 familyTyToIndices sig sz ty = case unfoldFully sig ty of
   VPi n a b => do
     let vb = apply (asGlobEnv sig) sz b
     (ps' ** ind') <- familyTyToIndices sig (SS sz) vb
-    pure (([< n] ++ ps') ** prepend n a ind')
+    pure (([< n] ++ ps') ** [< (n, closeVal SZ idEnv a)] ++ ind')
   VU => pure ([<] ** [<])
   _ => Nothing
+  
+covering
+indices : (Tc m) => TmTypechecker m Check (gs, ps, ps) -> Context gs ps ps -> m (is : Names ** VTel gs is ps)
+indices familyTy ctx = do
+  familyTy' <- check familyTy ctx VU
+  let vFamilyTy = eval ctx.globEnv ctx.local.env familyTy'
+  case familyTyToIndices ctx.global ctx.local.size vFamilyTy of
+    Just (is ** ind) => pure (is ** ind)
+    Nothing => tcError $ ExpectedFamily ctx.local.binds vFamilyTy
   
 public export covering
 dataItem : (Tc m)
   => (n : Name)
   -> (params : TelTypechecker m Check (gs, [<], [<]) ps)
-  -> (familyTy : TmTypechecker m Check (gs, ps, ps))
+  -> (indices : VTel gs is ps)
   -> (ctors : CtorsTypechecker m Check (gs, ps, ps) cs)
-  -> Typechecker m Item (gs, [<], [<]) ((gs :< (ps ** MkGlobName n DataGlob)) ++ cs, [<], [<])
-dataItem n params familyTy ctors = InItem $ \ctx => do
+  -> Typechecker m Item (gs, [<], [<]) ((gs :< (ps ++ is ** MkGlobName n DataGlob)) ++ cs, [<], [<])
+dataItem n params ind ctors = InItem $ \ctx => do
   (ctx', params') <- tel' params ctx
-  familyTy' <- check familyTy ctx' VU
-  let vFamilyTy = eval ctx'.globEnv ctx'.local.env familyTy'
-  case familyTyToIndices ctx'.global params'.size vFamilyTy of
-    Just (ps ** ind) => ?hfdsf
-    Nothing => tcError $ ExpectedFamily ctx'.local.binds vFamilyTy
+  let Val ps = params'.names
+  let Val is = ind.names
+  let d : DataItem ctx'.global
+      d = MkDataItem n params' ind
+  let ctx'' = MkContext (ctx'.global :< Data d) (globWeaken @{globWeakenCtx} ctx'.local)
+  ctx''' <- constructors ctors d ctx''
+  pure $ MkContext ctx'''.global [<]
