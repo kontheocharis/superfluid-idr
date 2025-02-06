@@ -127,3 +127,8 @@ public export covering
 public export covering
 (++.) : VTel gs ps [<] -> VTel gs qs ps -> VTel gs (ps ++ qs) [<]
 (++.) a b = a ++ (rewrite appendLinLeftNeutral ps in b)
+ 
+public export covering
+prepend : Size bs -> (n : Name) -> VTm gs bs -> VTel gs ps (bs :< n) -> VTel gs ([<n] ++ ps) bs
+prepend sz n t [<] = [< (n, closeVal SZ idEnv t)]
+prepend sz n t ((:<) {ps = ps} te' (m, t')) = ?hole

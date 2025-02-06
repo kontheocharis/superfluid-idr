@@ -34,6 +34,7 @@ isTmMode Item = No (\case Refl impossible)
 public export
 data TcError : Type where
   ExpectedPi : Singleton bs -> (original : VTm gs bs) -> (unfolded : VTm gs bs) -> TcError
+  ExpectedFamily : Singleton bs -> (given : VTm gs bs) -> TcError
   Mismatch : Singleton bs -> VTm gs bs -> VTm gs bs -> TcError
   NameNotFound : (n : Name) -> TcError
 
@@ -80,8 +81,8 @@ data Typechecker : TypecheckerKind where
         ))
     -> Typechecker m Bind (gs, ns, bs) (gs, ns ++ pns, bs ++ pbs)
   InItem : (Tc m)
-    => (Context gs [<] [<] -> m (Context (gs :< g) [<] [<]))
-    -> Typechecker m Item (gs, [<], [<]) (gs :< g, [<], [<])
+    => (Context gs [<] [<] -> m (Context gs' [<] [<]))
+    -> Typechecker m Item (gs, [<], [<]) (gs', [<], [<])
   InError : (Tc m)
     => ({0 a : Type} -> m a)
     -> Typechecker m md i i'
@@ -329,3 +330,49 @@ primItem n params ty = InItem $ \ctx => do
   let vty = eval ctx'.globEnv ctx'.local.env ty'
   pure (extendGlobal (\sig => sig :< Prim (MkPrimItem n params' vty)) ctx)
   
+namespace CtorsTypechecker
+  public export
+  data CtorsTypechecker : (0 m : Type -> Type) -> (Tc m)
+    => (0 _ : TcMode)
+    -> ContextIndex
+    -> GlobNamed Type
+    where
+    Lin : (Tc m)
+      => CtorsTypechecker m md (gs, ns, bs) [<]
+    With : (Tc m)
+      => CtorsTypechecker m md (gs, ns, bs) gs'
+      -> (n : Name)
+      -> (params : TelTypechecker m md (gs ++ gs', ns, bs) ps)
+      -> (ret : TmTypechecker m md (gs ++ gs', ns ++ ps, bs ++ ps))
+      -> CtorsTypechecker m md (gs, ns, bs) (gs :< (ps ** MkGlobName n CtorGlob))
+      
+constructors : (Tc m) => {auto _ : IsTmMode md}
+  -> CtorsTypechecker m md (gs, ns, bs) cs
+  -> {0 d : DataItem sig'}
+  -> (di : ItemIn ctx.global (Data d))
+  -> Typechecker m Item (gs, [<], [<]) (gs ++ cs, [<], [<])
+
+covering
+familyTyToIndices : (sig : Sig gs) -> Size bs -> VTm gs bs -> Maybe (ps : Names ** VTel gs ps bs)
+familyTyToIndices sig sz ty = case unfoldFully sig ty of
+  VPi n a b => do
+    let vb = apply (asGlobEnv sig) sz b
+    (ps' ** ind') <- familyTyToIndices sig (SS sz) vb
+    pure (([< n] ++ ps') ** prepend n a ind')
+  VU => pure ([<] ** [<])
+  _ => Nothing
+  
+public export covering
+dataItem : (Tc m)
+  => (n : Name)
+  -> (params : TelTypechecker m Check (gs, [<], [<]) ps)
+  -> (familyTy : TmTypechecker m Check (gs, ps, ps))
+  -> (ctors : CtorsTypechecker m Check (gs, ps, ps) cs)
+  -> Typechecker m Item (gs, [<], [<]) ((gs :< (ps ** MkGlobName n DataGlob)) ++ cs, [<], [<])
+dataItem n params familyTy ctors = InItem $ \ctx => do
+  (ctx', params') <- tel' params ctx
+  familyTy' <- check familyTy ctx' VU
+  let vFamilyTy = eval ctx'.globEnv ctx'.local.env familyTy'
+  case familyTyToIndices ctx'.global params'.size vFamilyTy of
+    Just (ps ** ind) => ?hfdsf
+    Nothing => tcError $ ExpectedFamily ctx'.local.binds vFamilyTy
