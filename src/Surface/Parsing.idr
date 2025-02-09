@@ -193,10 +193,11 @@ fields : Parser PFields
 fields = do 
   fs <- sepBy (symbol ",") . located (,) $ do
     n <- name
+    args <- tel
     symbol ":"
     t <- tm
-    pure (n, t)
-  pure $ MkPFields (MkPTel (cast fs))
+    pure (n, args, t)
+  pure $ MkPFields (cast fs)
 
 lam : Parser PTm
 lam = atom $ do

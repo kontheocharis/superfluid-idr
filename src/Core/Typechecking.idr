@@ -342,21 +342,30 @@ namespace CtorsTypechecker
       -> (n : Name)
       -> (args : TelTypechecker m (gs ++ gs', ns, bs) as)
       -> (ret : TmTypechecker m Check (gs ++ gs', ns ++ as, bs ++ as))
-      -> CtorsTypechecker m (gs, ns, bs) (gs :< (as ** MkGlobName n CtorGlob))
+      -> CtorsTypechecker m (gs, ns, bs) (gs' :< (as ** MkGlobName n CtorGlob))
       
 covering
 constructors : (Tc m)
-  => CtorsTypechecker m (gs, ns, bs) cs
-  -> (d : DataItem sig')
+  => (d : DataItem sig')
+  -> CtorsTypechecker m (gs :< (d.ps ++ d.is ** MkGlobName d.name DataGlob), d.ps, d.ps) cs
   -> Context (gs :< (d.ps ++ d.is ** MkGlobName d.name DataGlob)) d.ps d.ps
   -> m (Context (gs :< (d.ps ++ d.is ** MkGlobName d.name DataGlob) ++ cs) d.ps d.ps)
-constructors Lin _ ctx = pure ctx
-constructors (With cs n args ret) d ctx = do
-  (ctx', args') <- tel args ?fsdctx
-  ?todo
-  -- ret' <- check ret ctx' (globWeaken d)
-  -- let Val as = args'.names
-  -- let vty = eval ctx'.globEnv ctx'.local.env ret'
+constructors _ Lin ctx = pure ctx
+constructors d (With cs n args ret) ctx = do
+  ctx' <- constructors d cs ctx
+  (ctx'', args') <- tel args ctx'
+  ret' <- check ret ctx'' VU
+  let Val as = args'.names
+  let vty = eval ctx''.globEnv ctx''.local.env ret'
+  case unfoldFully ctx'.global vty of
+    ty@(VGlob g rets [<] _) => if match g (MkGlobNameIn (MkGlobName d.name DataGlob) _)
+      then do 
+        let c : CtorItem {sig = ctx'.global} {d = d} ?Heres
+            c = MkCtorItem n ?argss ?retss
+        let ctx''' = MkContext (ctx'.global :< Ctor c) (globWeaken @{globWeakenCtx} ctx'.local)
+        pure ctx'''
+      else tcError $ ExpectedFamily ctx''.local.binds ty
+    ty => tcError $ ExpectedFamily ctx''.local.binds ty
   -- case unfoldFully ctx'.global vty of
   --   VGlobal (MkGlobNameIn n' _) sp1 [<] _ => do
   --     convertOrError ctx'.global ctx'.local.binds a d
@@ -369,7 +378,7 @@ dataItem : (Tc m)
   => (n : Name)
   -> (params : TelTypechecker m (gs, [<], [<]) ps)
   -> (indices : TelTypechecker m (gs, ps, ps) is)
-  -> (ctors : CtorsTypechecker m (gs, ps, ps) cs)
+  -> (ctors : CtorsTypechecker m (gs :< (ps ++ is ** MkGlobName n DataGlob), ps, ps) cs)
   -> Typechecker m Item (gs, [<], [<]) ((gs :< (ps ++ is ** MkGlobName n DataGlob)) ++ cs, [<], [<])
 dataItem n params indices ctors = InItem $ \ctx => do
   (ctx', params') <- tel' params ctx
@@ -379,5 +388,5 @@ dataItem n params indices ctors = InItem $ \ctx => do
   let d : DataItem ctx'.global
       d = MkDataItem n params' ind'
   let ctx'' = MkContext (ctx'.global :< Data d) (globWeaken @{globWeakenCtx} ctx'.local)
-  ctx''' <- constructors ctors d ctx''
+  ctx''' <- constructors d ctors ctx''
   pure $ MkContext ctx'''.global [<]
