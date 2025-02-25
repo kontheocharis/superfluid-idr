@@ -109,7 +109,7 @@ public export
 Show PTm
 
 indented : String -> String
-indented s = lines s |> map (\l => "  " ++ l) |> joinBy "\n"
+indented s = (lines ("\n" ++ s) |> map (\l => "  " ++ l) |> joinBy "\n") ++ "\n"
 
 public export
 covering

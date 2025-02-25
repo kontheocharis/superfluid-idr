@@ -1,17 +1,22 @@
 
-def Type : U = U
+data Nat {
+  zero : Nat,
+  succ (n : Nat) : Nat
+}
 
-def Nat : Type = (A : U) -> A -> (A -> A) -> A
+-- def Type : U = U
 
-def zero : Nat = \A z s => z
+-- def Nat : Type = (A : U) -> A -> (A -> A) -> A
 
-def succ (n : Nat) : Nat = \A z s => s (n A z s)
+-- def zero : Nat = \A z s => z
 
-def elim (A : U) (z : A) (s : A -> A) (n : Nat) : A = n A z s
+-- def succ (n : Nat) : Nat = \A z s => s (n A z s)
 
-def add : Nat -> Nat -> Nat = \a b => elim Nat b succ a
+-- def elim (A : U) (z : A) (s : A -> A) (n : Nat) : A = n A z s
 
-def mul : Nat -> Nat -> Nat = \a b => elim Nat zero (add a) b
+-- def add : Nat -> Nat -> Nat = \a b => elim Nat b succ a
+
+-- def mul : Nat -> Nat -> Nat = \a b => elim Nat zero (add a) b
 
 -- def exp : Nat -> Nat -> Nat = \a b => elim Nat (succ zero) (mul a) b
 
@@ -24,6 +29,3 @@ def mul : Nat -> Nat -> Nat = \a b => elim Nat zero (add a) b
 -- def ten : Nat = add eight two
 
 -- def twenty : Nat = mul two ten
-
-
-

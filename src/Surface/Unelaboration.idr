@@ -50,30 +50,27 @@ unelabTel Lin = MkPTel [<]
 unelabTel (te :< (n, t)) = let MkPTel ts = unelabTel te in MkPTel (ts :< (dummyLoc, n, unelabClosure t))
 
 public export covering
-unelabItem : (sig : Sig gs) -> Item sig -> State (SnocList (Name, PFields)) PSig
+unelabItem : (sig : Sig gs) -> Item sig -> State PFields PSig
 unelabItem _ (Def (MkDefItem n pr ty tm)) = pure . MkPSig . cast $ [(dummyLoc, PDef n (unelabTel pr) (unelabVal ty) $ case tm of
   Just t => unelab t
   Nothing => PName (MkName "?"))]
 unelabItem sig (Data (MkDataItem n pr ind)) = do
-  ctors <- lookup n . toList <$> get
-  pure . MkPSig . cast $ [(dummyLoc, PData n (unelabTel pr) (unelabTel ind) (fromMaybe (MkPFields []) ctors))]
+  ctors <- get
+  modify (const $ MkPFields [])
+  pure . MkPSig . cast $ [(dummyLoc, PData n (unelabTel pr) (unelabTel ind) ctors)]
 unelabItem _ (Prim (MkPrimItem n pr ty)) = pure . MkPSig . cast $ [(dummyLoc, PPrim n (unelabTel pr) (unelabVal ty))]
-unelabItem sig it@(Ctor (MkCtorItem n args ret)) = do
+unelabItem sig it@(Ctor (MkCtorItem {d = d} n args ret)) = do
   let ty = unelabVal (itemTy it)
   let (args, ret) = pGatherPis ty
-  modify (modifyAt n (\(MkPFields ns) => MkPFields (ns ++ [(dummyLoc, n, args, ret)])))
+  modify (\(MkPFields ns) => MkPFields ((dummyLoc, n, args, ret) :: ns))
   pure $ MkPSig [<]
-  where
-    modifyAt : (Eq a) => a -> (b -> b) -> SnocList (a, b) -> SnocList (a, b)
-    modifyAt _ _ [<] = [<]
-    modifyAt a' f (xs :< (a, b)) = if a == a' then xs :< (a, f b) else modifyAt a' f xs :< (a, b)
 
 public export covering
 unelabSig : Sig gs -> PSig
-unelabSig s = evalState [<] (unelabSig' s)
+unelabSig s = evalState (MkPFields []) (unelabSig' s)
   where
     covering
-    unelabSig' : Sig gs' -> State (SnocList (Name, PFields)) PSig
+    unelabSig' : Sig gs' -> State PFields PSig
     unelabSig' [<] = pure . MkPSig $ [<]
     unelabSig' (sig :< it) = do
       MkPSig it' <- unelabItem sig it
