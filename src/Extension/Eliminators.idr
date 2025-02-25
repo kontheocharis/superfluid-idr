@@ -5,28 +5,19 @@ import Context
 import Core.Syntax
 import Core.Values
 import Extension.Inductive
+import Data.DPair
 
-IsCtor : Idx ns -> Names -> Type
+record Constraint (0 gs : GlobNames) (0 ns : Names) where
+  constructor MkConstraint
+  term : STm gs ns
+  pat : SPat gs ns
+  ty : VTy gs ns
 
-data Ctor : Names -> Names -> Type where
-  MkCtor : (i : Idx ns) -> IsCtor i ps -> Ctor ps ns
+data Elim : Names -> Type where
+  ElimVar : Idx ns -> Elim ns
 
--- data Pat : Names -> Type where
---   PatVar : Idx ns -> Pat ns
---   PatCtor : Ctor ps ns -> Spine Pat ps ns -> Pat ns
-
--- data CoPat : Names -> Type where
---   CoPatVar : Idx ns -> CoPat ns
-
--- record Constraint (ns : Names) where
---   constructor MkConstraint
---   term : STm ns
---   pat : Pat ns
---   ty : VTy ns
-
--- record PartialClause (ns : Names) where
---   constructor MkPartialClause
---   constraints : SnocList (Constraint ns)
---   copats : SnocList (CoPat ns)
---   rhs : STm ns
-
+record PartialClause (0 gs : GlobNames) (0 ns : Names) where
+  constructor MkPartialClause
+  constraints : SnocList (Constraint gs ns)
+  elims : SnocList (Elim ns)
+  rhs : STm gs ns

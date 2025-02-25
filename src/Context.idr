@@ -26,7 +26,7 @@ Injective MkName where
 public export
 DecEq Name where
   decEq (MkName n) (MkName n') = decEqCong $ decEq n n'
-  
+
 public export
 Eq Name where
   (==) (MkName n) (MkName n') = n == n'
@@ -38,7 +38,7 @@ Names = SnocList Name
 public export
 0 Named : Type -> Type
 Named t = (0 _ : Names) -> t
-  
+
 public export
 data Size : (0 _ : SnocList a) -> Type where
   SZ : Size Lin
@@ -56,7 +56,7 @@ DecEq (Size ns) where
     No contra => No (\case Refl => contra Refl)
   decEq SZ (SS m) impossible
   decEq (SS n) SZ impossible
-  
+
 Eq (Size ns) where
   (==) a b = isYes $ decEq a b
 
@@ -72,7 +72,7 @@ record GlobName (0 ps : Names) where
   constructor MkGlobName
   name : Name
   kind : GlobKind
-  
+
 public export
 DecEq GlobKind where
   decEq CtorGlob CtorGlob = Yes Refl
@@ -91,7 +91,7 @@ DecEq GlobKind where
   decEq PrimGlob CtorGlob = No (\case Refl impossible)
   decEq PrimGlob DataGlob = No (\case Refl impossible)
   decEq PrimGlob DefGlob = No (\case Refl impossible)
-  
+
 public export
 Eq GlobKind where
   (==) a b = isYes $ decEq a b
@@ -103,20 +103,20 @@ Biinjective MkGlobName where
 public export
 DecEq (GlobName ps) where
   decEq (MkGlobName n k) (MkGlobName n' k') = decEqCong2 (decEq n n') (decEq k k')
-  
+
 public export
 Eq (GlobName ps) where
   (==) a b = isYes $ decEq a b
-  
+
 public export
 0 WithIrrNamesN : (n : Nat) -> composeN n Named Type -> Type
 WithIrrNamesN 0 t = t
 WithIrrNamesN (S n) t = Exists (\ns => WithIrrNamesN n (t ns))
-  
+
 public export
 0 IrrNameListN : (n : Nat) -> composeN n Named Type -> Type
 IrrNameListN n t = SnocList (WithIrrNamesN n t)
-  
+
 public export
 0 NameList : Named Type -> Type
 NameList t = SnocList (DPair Names (\ns => t ns))
@@ -134,11 +134,20 @@ record GlobNameIn (0 gs : GlobNames) (0 ps : Names) where
   constructor MkGlobNameIn
   name : GlobName ps
   contained : Elem (ps ** name) gs
-  
+
+matchNames : (a : GlobNameIn gs ps) -> (b : GlobNameIn gs ps')
+  -> elemToNat a.contained = elemToNat b.contained
+  -> ps = ps'
+matchNames (MkGlobNameIn n' Here) (MkGlobNameIn n' Here) Refl = Refl
+matchNames (MkGlobNameIn n (There p)) (MkGlobNameIn n' (There p')) q =
+  matchNames (MkGlobNameIn n p) (MkGlobNameIn n' p') (inj S q)
+
 public export
-match : GlobNameIn gs ps -> GlobNameIn gs ps' -> Bool
-match (MkGlobNameIn n e) (MkGlobNameIn n' e') = elemToNat e == elemToNat e'
-  
+match : GlobNameIn gs ps -> GlobNameIn gs ps' -> Maybe (ps = ps')
+match a b = case decEq (elemToNat a.contained) (elemToNat b.contained) of
+  Yes p => Just (matchNames a b p)
+  No _ => Nothing
+
 public export
 DecEq (GlobNameIn gs ps) where
   decEq (MkGlobNameIn n e) (MkGlobNameIn n' e') = case decEq n n' of
@@ -146,11 +155,11 @@ DecEq (GlobNameIn gs ps) where
       Yes Refl => Yes Refl
       No contra => No (\case Refl => contra Refl)
     No contra => No (\case Refl => contra Refl)
-  
+
 public export
 Eq (GlobNameIn gs ps) where
   (==) a b = isYes $ decEq a b
-  
+
 public export
 GlobKindNameIn : (kind : GlobKind) -> (0 gs : GlobNames) -> (0 ps : Names) -> Type
 GlobKindNameIn kind gs ps = Subset (GlobNameIn gs ps) (\(MkGlobNameIn n e) => kind = n.kind)

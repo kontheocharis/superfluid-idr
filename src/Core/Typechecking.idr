@@ -22,7 +22,7 @@ public export
 data IsTmMode : TcMode -> Type where
   CheckIsTmMode : IsTmMode Check
   InferIsTmMode : IsTmMode Infer
-  
+
 public export
 isTmMode : (m : TcMode) -> Dec (IsTmMode m)
 isTmMode Check = Yes CheckIsTmMode
@@ -51,7 +51,7 @@ data TcModeInput : (0 _ : TcMode) -> GlobNamed (Named Type) where
   InferInput : TcModeInput Infer gs bs
 
 public export
-0 ContextIndex : Type 
+0 ContextIndex : Type
 ContextIndex = (GlobNames, Names, Names)
 
 public export
@@ -87,7 +87,7 @@ data Typechecker : TypecheckerKind where
   InError : (Tc m)
     => ({0 a : Type} -> m a)
     -> Typechecker m md i i'
-    
+
 public export
 0 TmTypechecker : (0 m : Type -> Type) -> (Tc m) => (0 _ : TcMode) -> ContextIndex -> Type
 TmTypechecker m md i = Typechecker m md i i
@@ -152,7 +152,7 @@ public export
 mirror : (Tc m) => {auto _ : IsTmMode md}
   -> TmTypechecker m md (gs, ns, bs)
   -> (Context gs' ns' bs' -> TcModeInput md gs' bs' -> m (STm gs' ns', VTy gs' bs'))
-  -> TmTypechecker m md (gs', ns', bs') 
+  -> TmTypechecker m md (gs', ns', bs')
 mirror (InCheck _) k = InCheck $ \ctx => \ty => do
   (a, _) <- k ctx (CheckInput ty)
   pure a
@@ -182,13 +182,13 @@ lam n f = InCheck $ \ctx => \ty => case unfoldFully ctx.global ty of
     t <- check f (mapLocal (\l => Bind l n a) ctx) (applyRen ctx.globEnv ctx.local.bindsSize b)
     pure (SLam n t)
   ty' => tcError $ ExpectedPi ctx.local.binds ty ty'
-  
+
 public export covering
 typedLam : (Tc m) => {auto _ : IsTmMode md}
   -> (n : Name)
   -> (argTy : TmTypechecker m md (gs, ns, bs))
   -> (body : TmTypechecker m Infer (gs, ns :< n, bs :< n) )
-  -> TmTypechecker m Infer (gs, ns, bs) 
+  -> TmTypechecker m Infer (gs, ns, bs)
 typedLam n a f = InInfer $ \ctx => do
     a' <- check a ctx VU
     let va = eval ctx.globEnv ctx.local.env a'
@@ -200,7 +200,7 @@ letIn : (Tc m) => {auto _ : IsTmMode md}
   -> (n : Name)
   -> (rhs : TmTypechecker m Infer (gs, ns, bs))
   -> (rest : TmTypechecker m md (gs, ns :< n, bs))
-  -> TmTypechecker m md (gs, ns, bs) 
+  -> TmTypechecker m md (gs, ns, bs)
 letIn n a b = mirror b $ \ctx => \ret => do
   (a', ty) <- infer a ctx
   let va = eval ctx.globEnv ctx.local.env a'
@@ -213,7 +213,7 @@ typedLetIn : (Tc m) => {auto _ : IsTmMode md}
   -> (rhsTy : TmTypechecker m Check (gs, ns, bs))
   -> (rhs : TmTypechecker m Check (gs, ns, bs))
   -> (rest : TmTypechecker m md (gs, ns :< n, bs))
-  -> TmTypechecker m md (gs, ns, bs) 
+  -> TmTypechecker m md (gs, ns, bs)
 typedLetIn n ty a b = mirror b $ \ctx => \ret => do
   ty' <- check ty ctx VU
   let vty = eval ctx.globEnv ctx.local.env ty'
@@ -226,7 +226,7 @@ public export covering
 app : (Tc m) => {auto _ : IsTmMode md}
   -> (fn : TmTypechecker m Infer (gs, ns, bs))
   -> (arg : TmTypechecker m md (gs, ns, bs))
-  -> TmTypechecker m Infer (gs, ns, bs) 
+  -> TmTypechecker m Infer (gs, ns, bs)
 app f g = InInfer $ \ctx => do
   (f', s) <- infer f ctx
   case unfoldFully ctx.global s of
@@ -240,7 +240,7 @@ pi : (Tc m) => {auto _ : IsTmMode md} -> {auto _ : IsTmMode md'}
   -> (n : Name)
   -> (dom : TmTypechecker m md (gs, ns, bs))
   -> (cod : TmTypechecker m md' (gs, ns :< n, bs :< n))
-  -> TmTypechecker m Infer (gs, ns, bs) 
+  -> TmTypechecker m Infer (gs, ns, bs)
 pi n a b = InInfer $ \ctx => do
   a' <- check a ctx VU
   b' <- check b (mapLocal (\l => Bind l n (eval ctx.globEnv l.env a')) ctx) VU
@@ -259,7 +259,7 @@ BranchTypechecker m md (gs, ns, bs) pns pbs = (
     Typechecker m Bind (gs, ns, bs) (gs, ns ++ pns, bs ++ pbs),
     Typechecker m md (gs, ns ++ pns, bs ++ pbs) (gs, ns ++ pns, bs ++ pbs)
   )
-  
+
 namespace TelTypechecker
   public export
   data TelTypechecker : (0 m : Type -> Type) -> (Tc m)
@@ -271,7 +271,7 @@ namespace TelTypechecker
       => (c : TelTypechecker m (gs, ns, bs) ps)
       -> (p : (Name, Typechecker m Check (gs, ns ++ ps, bs ++ ps) (gs, ns ++ ps, bs ++ ps)))
       -> TelTypechecker m (gs, ns, bs) (ps :< fst p)
-      
+
 public export covering
 tel : (Tc m)
   => TelTypechecker m (gs, ns, bs) ps
@@ -284,7 +284,7 @@ tel ((:<) ts (n, t)) ctx = do
   let vty = eval ctx'.globEnv ctx'.local.env t'
   let cty = Cl ts'.size ctx.local.env t'
   pure (mapLocal (\l => Bind l n vty) ctx', ts' :< (n, cty))
-  
+
 public export covering
 tel' : (Tc m)
   => TelTypechecker m (gs, [<], [<]) ps
@@ -328,43 +328,48 @@ primItem n params ty = InItem $ \ctx => do
   let Val ps = ctx'.local.names
   let vty = eval ctx'.globEnv ctx'.local.env ty'
   pure (extendGlobal (\sig => sig :< Prim (MkPrimItem n params' vty)) ctx)
-  
+
 namespace CtorsTypechecker
   public export
   data CtorsTypechecker : (0 m : Type -> Type) -> (Tc m)
     => ContextIndex
+    -> (ps : Names)
     -> GlobNamed Type
     where
     Lin : (Tc m)
-      => CtorsTypechecker m (gs, ns, bs) [<]
+      => CtorsTypechecker m (gs, ns, bs) ps [<]
     With : (Tc m)
-      => CtorsTypechecker m (gs, ns, bs) gs'
+      => CtorsTypechecker m (gs, ns, bs) ps gs'
       -> (n : Name)
       -> (args : TelTypechecker m (gs ++ gs', ns, bs) as)
       -> (ret : TmTypechecker m Check (gs ++ gs', ns ++ as, bs ++ as))
-      -> CtorsTypechecker m (gs, ns, bs) (gs' :< (as ** MkGlobName n CtorGlob))
-      
+      -> CtorsTypechecker m (gs, ns, bs) ps (gs' :< (ps ++ as ** MkGlobName n CtorGlob))
+
 covering
 constructors : (Tc m)
-  => (d : DataItem sig')
-  -> CtorsTypechecker m (gs :< (d.ps ++ d.is ** MkGlobName d.name DataGlob), d.ps, d.ps) cs
+  => (d : DataItem sig)
+  -> {0 sig' : Sig gs}
+  -> (di : ItemIn sig' (Data d))
+  -> CtorsTypechecker m (gs :< (d.ps ++ d.is ** MkGlobName d.name DataGlob), d.ps, d.ps) d.ps cs
   -> Context (gs :< (d.ps ++ d.is ** MkGlobName d.name DataGlob)) d.ps d.ps
   -> m (Context (gs :< (d.ps ++ d.is ** MkGlobName d.name DataGlob) ++ cs) d.ps d.ps)
-constructors _ Lin ctx = pure ctx
-constructors d (With cs n args ret) ctx = do
-  ctx' <- constructors d cs ctx
+constructors _ _ Lin ctx = pure ctx
+constructors d di (With cs n args ret) ctx = do
+  ctx' <- constructors d di cs ctx
   (ctx'', args') <- tel args ctx'
   ret' <- check ret ctx'' VU
   let Val as = args'.names
   let vty = eval ctx''.globEnv ctx''.local.env ret'
+  let gData = MkGlobNameIn ((Data d).globName) (globNameElem di)
   case unfoldFully ctx'.global vty of
-    ty@(VGlob g rets [<] _) => if match g (MkGlobNameIn (MkGlobName d.name DataGlob) _)
-      then do 
-        let c : CtorItem {sig = ctx'.global} {d = d} ?Heres
-            c = MkCtorItem n ?argss ?retss
+    ty@(VGlob g rets [<] _) => case match g (globWeakenN _ (globWeaken gData)) of
+      Just Refl => do
+        let x  = ?fdsf
+        let c : CtorItem di
+            c = MkCtorItem {d = d} {di = di} n (globWeakenN {f = globWeakenForSpine} _ (globWeaken args')) (lastN _ rets)
         let ctx''' = MkContext (ctx'.global :< Ctor c) (globWeaken @{globWeakenCtx} ctx'.local)
         pure ctx'''
-      else tcError $ ExpectedFamily ctx''.local.binds ty
+      Nothing => tcError $ ExpectedFamily ctx''.local.binds ty
     ty => tcError $ ExpectedFamily ctx''.local.binds ty
   -- case unfoldFully ctx'.global vty of
   --   VGlobal (MkGlobNameIn n' _) sp1 [<] _ => do
@@ -378,7 +383,7 @@ dataItem : (Tc m)
   => (n : Name)
   -> (params : TelTypechecker m (gs, [<], [<]) ps)
   -> (indices : TelTypechecker m (gs, ps, ps) is)
-  -> (ctors : CtorsTypechecker m (gs :< (ps ++ is ** MkGlobName n DataGlob), ps, ps) cs)
+  -> (ctors : CtorsTypechecker m (gs :< (ps ++ is ** MkGlobName n DataGlob), ps, ps) ps cs)
   -> Typechecker m Item (gs, [<], [<]) ((gs :< (ps ++ is ** MkGlobName n DataGlob)) ++ cs, [<], [<])
 dataItem n params indices ctors = InItem $ \ctx => do
   (ctx', params') <- tel' params ctx
@@ -388,5 +393,5 @@ dataItem n params indices ctors = InItem $ \ctx => do
   let d : DataItem ctx'.global
       d = MkDataItem n params' ind'
   let ctx'' = MkContext (ctx'.global :< Data d) (globWeaken @{globWeakenCtx} ctx'.local)
-  ctx''' <- constructors d ctors ctx''
+  ctx''' <- constructors d Here ctors ctx''
   pure $ MkContext ctx'''.global [<]

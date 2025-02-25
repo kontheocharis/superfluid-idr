@@ -30,11 +30,11 @@ public export
 data IsPat : STm gs ns -> Type where
   SVarIsPat : IsPat (SVar i)
   SGlobIsPat : IsPat (SGlob n sp)
-  
+
 public export
 0 SPat : GlobNamed (Named Type)
 SPat gs ns = Subset (STm gs ns) IsPat
-  
+
 isPat : (s : STm gs ns) -> Dec (IsPat s)
 isPat (SVar i) = Yes SVarIsPat
 isPat (SGlob n sp) = Yes SGlobIsPat
@@ -54,7 +54,7 @@ namespace Tel
   (++) : Tel f' ps' ns' -> Tel f' qs' (ns' ++ ps') -> Tel f' (ps' ++ qs') ns'
   (++) te [<] = te
   (++) te ((:<) {ps = ps} te' (n, t)) = (te ++ te') :< (n, rewrite appendAssociative ns' ps' ps in t)
-  
+
   export infixr 5 ++.
 
   public export
@@ -71,6 +71,10 @@ namespace Spine
   (++) te [<] = te
   (++) te ((:<) {ps = ps} te' t) = (te ++ te') :< t
 
+  public export
+  lastN : Size qs -> Spine f (ps ++ qs) ns -> Spine f qs ns
+  lastN SZ p = [<]
+  lastN (SS n) (te :< t) = lastN n te :< t
 
 public export
 Con : (Named Type) -> Named Type

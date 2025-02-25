@@ -29,8 +29,8 @@ mutual
   convert sig s u (VLam n t) = convert sig (SS s) (app (asGlobEnv sig) (weaken u) n (VVar (lastLvl s))) (apply (asGlobEnv sig) s t)
   convert sig s (VRigid l sp) (VRigid l' sp') = l == l' && convertSpine sig s sp sp'
   convert sig s t@(VGlob g sp pp u) t'@(VGlob g' sp' pp' u') with (match g g')
-    _ | True = convertSpine sig s sp sp' && convertSpine sig s pp pp'
-    _ | False = case u of
+    _ | Just _ = convertSpine sig s sp sp' && convertSpine sig s pp pp'
+    _ | Nothing = case u of
         Just u => convert sig s (force u) t'
         Nothing => case u' of
           Just u' => convert sig s t (force u')
@@ -39,7 +39,7 @@ mutual
     Just t' => convert sig s t t'
     Nothing => False
   convert sig s (VGlob g sp pp t) t' = case t of
-    Just t => convert sig s t t' 
+    Just t => convert sig s t t'
     Nothing => False
   convert sig s _ _ = False
 
@@ -48,4 +48,3 @@ mutual
   convertSpine sig s [<] [<] = True
   convertSpine sig s (sp :< t) (sp' :< t') = convertSpine sig s sp sp' && convert sig s t t'
   convertSpine sig s _ _ = False
-

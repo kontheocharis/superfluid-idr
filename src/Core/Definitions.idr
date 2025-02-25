@@ -32,6 +32,7 @@ namespace DataItem
   public export
   record DataItem (0 sig : Sig gs)
 
+public export
 Data' : (d : DataItem sig) -> Item sig
 
 namespace CtorItem
@@ -99,7 +100,10 @@ public export
 (.name) (Ctor c) = c.name
 
 public export
-(.arity) : {sig : Sig gs} -> Item sig -> Names
+(.arityRel) : {sig : Sig gs} -> Item sig -> Names
+
+public export
+0 (.arity) : {sig : Sig gs} -> Item sig -> Names
 
 public export
 (.globName) : (i : Item sig) -> GlobName i.arity
@@ -113,7 +117,7 @@ namespace Sig
   data Sig : GlobNamed Type where
     Lin : Sig Lin
     (:<) : (sig : Sig gs) -> (i : Item sig) -> Sig (gs :< (i.arity ** i.globName))
-  
+
   (.size) : Sig gs -> Size gs
 
 namespace Item
@@ -133,11 +137,23 @@ getDataItem : {sig : Sig gs} -> {0 d : DataItem sig'} -> ItemIn sig (Data d) -> 
 getDataItem i = case getItem i of
   Val (Data d) => Val d
 
+(.arityRel) (Def d) = d.ps
+(.arityRel) (Data d) = d.ps ++ d.is
+(.arityRel) (Prim p) = p.ps
+(.arityRel) (Ctor {di = di} c) = let d = getDataItem di in d.value.ps ++ c.as
+
 (.arity) (Def d) = d.ps
 (.arity) (Data d) = d.ps ++ d.is
 (.arity) (Prim p) = p.ps
-(.arity) (Ctor {di = di} c) = let d = getDataItem di in d.value.ps ++ c.as
-  
+(.arity) (Ctor {d = d} c) = d.ps ++ c.as
+
+public export
+0 arityRelSame : (x : Item sig) -> x.arityRel = x.arity
+arityRelSame (Def d) = Refl
+arityRelSame (Data d) = Refl
+arityRelSame (Prim p) = Refl
+arityRelSame (Ctor {d = d, di = di} c) = rewrite (getDataItem di).identity in Refl
+
 public export
 globWeakenDefItem : DefItem sig -> DefItem (sig :< i)
 globWeakenDefItem (MkDefItem n params ty tm) = MkDefItem n (globWeakenVTel params) (globWeaken ty) (map (globReorder . globWeaken) tm)
@@ -171,7 +187,7 @@ globWeakenDefItemTm : GlobWeaken f
   -> f gs ns
 globWeakenDefItemTm Here y = y
 globWeakenDefItemTm @{f} (There x) y = globWeaken $ globWeakenDefItemTm @{f} x y
-  
+
 public export
 globWeakenCtor : {0 sig : Sig gs}
   -> {0 d : DataItem sig'}
@@ -204,7 +220,7 @@ record Context (0 gs : GlobNames) (0 ns : Names) (0 bs : Names) where
   constructor MkContext
   global : Sig gs
   local : Ctx gs ns bs
-  
+
 public export
 asGlobEnv : Sig gs -> GlobEnv gs
 
@@ -307,7 +323,7 @@ public export covering
 lookupItem : Size bs -> Sig gs -> (n : Name) -> Maybe (ps : Names ** (GlobNameIn gs ps, VTy gs bs))
 lookupItem s [<] _ = Nothing
 lookupItem s sig@(sig' :< it) m = case decEq it.name m of
-  Yes p => Just (it.arity ** (MkGlobNameIn it.globName Here, weakenTo s (globWeaken (itemTy it))))
+  Yes p => Just (it.arityRel ** rewrite arityRelSame it in (MkGlobNameIn it.globName Here, weakenTo s (globWeaken (itemTy it))))
   No q => map (\(ps ** (g, ty)) => (ps ** (MkGlobNameIn g.name (There g.contained), globWeaken ty))) (lookupItem s sig' m)
 
 public export
@@ -323,7 +339,7 @@ lookupName (MkContext sig ctx) m = case lookupLocal ctx m of
     Nothing => case lookupItem ctx.bindsSize sig m of
       Just (ps ** (g, t)) => FoundItem ps g t
       Nothing => NotFound
-      
+
 record GetGlob (0 ps : Names) (0 sig : Sig gs) where
   constructor MkGetGlob
   {0 gs' : GlobNames}
@@ -331,7 +347,7 @@ record GetGlob (0 ps : Names) (0 sig : Sig gs) where
   item : Item sig'
   itemIn : ItemIn sig item
   sameArity : item.arity = ps
-      
+
 public export
 getGlob : (sig : Sig gs) -> GlobNameIn gs ps -> GetGlob ps sig
 getGlob [<] (MkGlobNameIn _ _) impossible

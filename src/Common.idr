@@ -20,14 +20,14 @@ Show Lit where
   show (StringLit s) = show s
   show (CharLit c) = show c
   show (NatLit n) = show n
-  
+
 -- Source location
 public export
 record Loc where
   constructor MkLoc
   src : List Char
   pos : Fin (length src)
-  
+
 public export
 linesBefore : Loc -> List String
 linesBefore loc = lines (substr 0 (finToNat loc.pos) (pack loc.src))
@@ -68,11 +68,11 @@ composeN Z f x = x
 composeN (S k) f x = f (composeN k f x)
 
 public export
-apLeftR : {auto n : Nat} -> {f : SnocList a -> SnocList b -> Type} -> f p ([<] ++ q) -> f p q
+apLeftR : {auto n : Nat} -> {f : (0 _ : a) -> (0 _ : SnocList b) -> Type} -> f p ([<] ++ q) -> f p q
 apLeftR x = rewrite sym $ appendLinLeftNeutral q in x
 
 public export
-apLeftL : {f : (0 _ : SnocList a) -> (0 _ : SnocList b) -> Type} -> f ([<] ++ p) q -> f p q
+apLeftL : {f : (0 _ : SnocList a) -> (0 _ : b) -> Type} -> f ([<] ++ p) q -> f p q
 apLeftL x = rewrite sym $ appendLinLeftNeutral p in x
 
 public export
@@ -80,11 +80,11 @@ apLeftRL : {f : (0 _ : SnocList a) -> (0 _ : SnocList b) -> Type} -> f ([<] ++ p
 apLeftRL x = rewrite sym $ appendLinLeftNeutral q in rewrite sym $ appendLinLeftNeutral p in x
 
 public export
-apLeftMM : {f : (0 _ : SnocList a) -> (0 _ : SnocList b) -> (0 _ : SnocList c) -> Type} -> f p ([<] ++ q) r -> f p q r
+apLeftMM : {f : a -> (0 _ : SnocList b) -> (0 _ : c) -> Type} -> f p ([<] ++ q) r -> f p q r
 apLeftMM x = rewrite sym $ appendLinLeftNeutral q in x
 
 public export
-apLeftMMRR : {f : (0 _ : SnocList a) -> (0 _ : SnocList b) -> (0 _ : SnocList c) -> Type} -> f p ([<] ++ q) ([<] ++ r) -> f p q r
+apLeftMMRR : {f : (0 _ : a) -> (0 _ : SnocList b) -> (0 _ : SnocList c) -> Type} -> f p ([<] ++ q) ([<] ++ r) -> f p q r
 apLeftMMRR x = rewrite sym $ appendLinLeftNeutral q in rewrite sym $ appendLinLeftNeutral r in x
 
 public export
