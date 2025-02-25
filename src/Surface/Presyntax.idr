@@ -22,6 +22,12 @@ record PTel where
   constructor MkPTel
   actual : SnocList (Loc, Name, PTy)
 
+namespace PTel
+  public export
+  (.arity) : PTel -> Names
+  (.arity) (MkPTel [<]) = [<]
+  (.arity) (MkPTel (cs :< (l, n, t))) = (assert_smaller (MkPTel (cs :< (l, n, t))) (MkPTel cs)).arity :< n
+
 public export
 record PBranches where
   constructor MkPBranches
@@ -37,11 +43,19 @@ data PTm : Type where
   PLoc : Loc -> PTm -> PTm
   PLet : Name -> Maybe PTy -> PTm -> PTm -> PTm
   PCase : PTm -> PBranches -> PTm
-  
+
 public export
 record PFields where
   constructor MkPFields
-  actual : SnocList (Loc, Name, PTel, PTy)
+  actual : List (Loc, Name, PTel, PTy)
+
+namespace PFields
+  public export
+  arity : Names -> PFields -> GlobNames
+  arity ps (MkPFields []) = [<]
+  arity ps (MkPFields ((l, n, pr, ret) :: cs)) =
+      [< (ps ++ pr.arity ** MkGlobName n CtorGlob)] ++
+        arity ps (assert_smaller (MkPFields ((l, n, pr, ret) :: cs)) (MkPFields cs))
 
 public export
 0 PClauses : Type
@@ -52,7 +66,7 @@ data PItem : Type where
   PDef : Name -> PTel -> PTy -> PTm -> PItem
   PData : Name -> PTel -> PTel -> PFields -> PItem
   PPrim : Name -> PTel -> PTy -> PItem
-  
+
 public export
 (.name) : PItem -> GlobName ps
 (.name) (PDef n _ _ _) = MkGlobName n DefGlob
@@ -107,11 +121,11 @@ public export
 covering
 Show PBranches where
   show (MkPBranches bs) = map (\(_, p, t) => show p ++ " => " ++ show t) bs |> cast |> joinBy ",\n"
-  
+
 public export
 covering
 Show PFields where
-  show (MkPFields cs) = map (\(_, n, te, t) => show n ++ show te ++ " : " ++ show t) cs |> cast |> joinBy ",\n" 
+  show (MkPFields cs) = map (\(_, n, te, t) => show n ++ show te ++ " : " ++ show t) cs |> cast |> joinBy ",\n"
 
 public export
 covering
@@ -120,20 +134,20 @@ Show PItem where
   show (PData n tel (MkPTel [<]) cs) = "data " ++ show n ++ show tel ++ " {" ++ indented (show cs) ++ "}"
   show (PData n tel ind cs) = "data " ++ show n ++ show tel ++ " family" ++ show ind ++ " {" ++ indented (show cs) ++ "}"
   show (PPrim n tel ty) = "prim " ++ show n ++ show tel ++ " : " ++ show ty
-  
+
 public export
 covering
 Show PSig where
   show (MkPSig [<]) = ""
   show (MkPSig [< (_, it)]) = show it
   show (MkPSig (sig :< (_, it))) = show (MkPSig sig) ++ "\n\n" ++ show it
-  
+
 isAtomic : PTm -> Bool
 isAtomic (PName _) = True
 isAtomic PU = True
 isAtomic (PLoc _ t) = isAtomic t
 isAtomic _ = False
-  
+
 covering
 showAtomic : PTm -> String
 

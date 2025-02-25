@@ -21,7 +21,7 @@ data ElabError : Type where
 public export
 interface (Tc m) => Elab m where
   elabError : ElabError -> m a
-  
+
 errorElab : (Elab m) => {md : TcMode} -> ElabError -> Typechecker m md i i'
 errorElab e = InError $ elabError e
 
@@ -65,30 +65,32 @@ elab Infer (PName n) = named n
 elab Infer PU = u
 
 covering
-elabTel : (Elab m) => PTel -> Exists (\ps => TelTypechecker m (gs, ns, bs) ps)
-elabTel (MkPTel [<]) = Evidence _ [<]
-elabTel (MkPTel (ts :< (l, n, t))) = Evidence _ (snd (elabTel (MkPTel ts)) :< (n, InLoc l $ elab Check t))
+elabTel : (Elab m) => (t : PTel) -> TelTypechecker m (gs, ns, bs) t.arity
+elabTel (MkPTel [<]) = [<]
+elabTel (MkPTel (ts :< (l, n, t))) = elabTel (MkPTel ts) :< (n, InLoc l $ elab Check t)
 
 covering
-elabCtors : (Elab m) => PFields -> (Exists (\cs => CtorsTypechecker m (gs, ns, ns) cs))
-elabCtors (MkPFields [<]) = Evidence _ [<]
-elabCtors (MkPFields (cs :< (l, n, pr, ret))) =
-  let Evidence _ cs' = elabCtors (MkPFields cs) in
+elabCtors : (Elab m) => (fields : PFields) -> CtorsTypechecker m (gs, ns, ns) ps (gs ++ arity ps fields)
+elabCtors (MkPFields []) = [<]
+elabCtors (MkPFields ((l, n, pr, ret) :: cs)) =
+  let pr' = elabTel pr in
   let t' = InLoc l $ elab Check ret in
-  Evidence _ (With cs' n (snd (elabTel pr)) t')
+  let cs' = elabCtors (MkPFields cs) in
+  rewrite appendAssociative gs [<(ps ++ pr.arity ** MkGlobName n CtorGlob)] (arity ps (MkPFields cs)) -- terrible!
+    in With n pr' t' cs'
 
 covering
 elabItem : (Elab m)
   => (i : PItem)
   -> Exists (\gs' => Typechecker m Item (gs, [<], [<]) (gs', [<], [<]))
-elabItem (PDef n pr ty tm) = Evidence _ (defItem n (snd (elabTel pr)) (elab Check ty) (elab Check tm))
-elabItem (PPrim n pr ty) = Evidence _ (primItem n (snd (elabTel pr)) (elab Check ty))
-elabItem (PData n pr ind cs) = Evidence _ (dataItem n (snd (elabTel pr)) (snd (elabTel ind)) (snd (elabCtors cs)))
+elabItem (PDef n pr ty tm) = Evidence _ (defItem n (elabTel pr) (elab Check ty) (elab Check tm))
+elabItem (PPrim n pr ty) = Evidence _ (primItem n (elabTel pr) (elab Check ty))
+elabItem (PData n pr ind cs) = Evidence _ (dataItem n (elabTel pr) (elabTel ind) (elabCtors cs))
 
 public export covering
 elabSig : (Elab m) => PSig -> m (Exists (\gs => Sig gs))
 elabSig (MkPSig [<]) = pure $ Evidence _ Lin
-elabSig (MkPSig (sig :< (l, it))) = do 
+elabSig (MkPSig (sig :< (l, it))) = do
   Evidence _ sig' <- elabSig (MkPSig sig)
   elabSig' l it sig'
   where
