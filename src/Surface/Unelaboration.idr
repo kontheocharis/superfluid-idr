@@ -59,10 +59,12 @@ unelabItem sig (Data (MkDataItem n pr ind)) = do
   modify (const $ MkPFields [])
   pure . MkPSig . cast $ [(dummyLoc, PData n (unelabTel pr) (unelabTel ind) ctors)]
 unelabItem _ (Prim (MkPrimItem n pr ty)) = pure . MkPSig . cast $ [(dummyLoc, PPrim n (unelabTel pr) (unelabVal ty))]
-unelabItem sig it@(Ctor (MkCtorItem {d = d} n args ret)) = do
+unelabItem sig it@(Ctor c@(MkCtorItem {di = di} n args ret)) = do
+  let Val d = getDataItem di
   let ty = unelabVal (itemTy it)
-  let (args, ret) = pGatherPis ty
-  modify (\(MkPFields ns) => MkPFields ((dummyLoc, n, args, ret) :: ns))
+  let args' = unelabTel args
+  let (_, ret') = pGatherPis ty -- hack
+  modify (\(MkPFields ns) => MkPFields ((dummyLoc, n, args', ret') :: ns))
   pure $ MkPSig [<]
 
 public export covering

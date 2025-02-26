@@ -4,6 +4,15 @@ data Nat {
   succ (n : Nat) : Nat
 }
 
+def one : Nat = succ zero
+
+data Vec (T : U) family (n : Nat) {
+  nil : Vec T zero,
+  cons (x : T) (n : Nat) (xs : Vec T n) : Vec T (succ n)
+}
+
+def foo : Vec Nat zero = nil Nat
+
 -- def Type : U = U
 
 -- def Nat : Type = (A : U) -> A -> (A -> A) -> A

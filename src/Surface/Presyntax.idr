@@ -28,6 +28,12 @@ namespace PTel
   (.arity) (MkPTel [<]) = [<]
   (.arity) (MkPTel (cs :< (l, n, t))) = (assert_smaller (MkPTel (cs :< (l, n, t))) (MkPTel cs)).arity :< n
 
+  public export
+  last : Names -> PTel -> PTel
+  last [<] (MkPTel cs) = MkPTel cs
+  last (ps :< p) (MkPTel (cs :< c)) = let MkPTel cs' = last ps (MkPTel cs) in MkPTel (cs' :< c)
+  last (ps :< p) (MkPTel [<]) = MkPTel [<]
+
 public export
 record PBranches where
   constructor MkPBranches
