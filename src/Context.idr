@@ -66,6 +66,7 @@ data GlobKind : Type where
   DataGlob : GlobKind
   DefGlob : GlobKind
   PrimGlob : GlobKind
+  ElimGlob : GlobKind
 
 public export
 record GlobName (0 ps : Names) where
@@ -79,18 +80,27 @@ DecEq GlobKind where
   decEq DataGlob DataGlob = Yes Refl
   decEq DefGlob DefGlob = Yes Refl
   decEq PrimGlob PrimGlob = Yes Refl
+  decEq ElimGlob ElimGlob = Yes Refl
   decEq CtorGlob DataGlob = No (\case Refl impossible)
   decEq CtorGlob DefGlob = No (\case Refl impossible)
   decEq CtorGlob PrimGlob = No (\case Refl impossible)
+  decEq CtorGlob ElimGlob = No (\case Refl impossible)
   decEq DataGlob CtorGlob = No (\case Refl impossible)
   decEq DataGlob DefGlob = No (\case Refl impossible)
   decEq DataGlob PrimGlob = No (\case Refl impossible)
+  decEq DataGlob ElimGlob = No (\case Refl impossible)
   decEq DefGlob CtorGlob = No (\case Refl impossible)
   decEq DefGlob DataGlob = No (\case Refl impossible)
   decEq DefGlob PrimGlob = No (\case Refl impossible)
+  decEq DefGlob ElimGlob = No (\case Refl impossible)
   decEq PrimGlob CtorGlob = No (\case Refl impossible)
   decEq PrimGlob DataGlob = No (\case Refl impossible)
   decEq PrimGlob DefGlob = No (\case Refl impossible)
+  decEq PrimGlob ElimGlob = No (\case Refl impossible)
+  decEq ElimGlob CtorGlob = No (\case Refl impossible)
+  decEq ElimGlob DataGlob = No (\case Refl impossible)
+  decEq ElimGlob DefGlob = No (\case Refl impossible)
+  decEq ElimGlob PrimGlob = No (\case Refl impossible)
 
 public export
 Eq GlobKind where

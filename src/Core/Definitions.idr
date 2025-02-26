@@ -43,16 +43,47 @@ namespace PrimItem
   public export
   record PrimItem (0 sig : Sig gs)
 
-namespace Item
+public export
+Ctor' : {di : ItemIn sig (Data' d)} -> CtorItem {d = d} di -> Item sig
 
+namespace CtorsIn
+  public export
+  data CtorsIn : {0 gs' : GlobNames}
+    -> {0 sig' : Sig gs'}
+    -> {0 d : DataItem sig'}
+    -> (sig : Sig gs)
+    -> (di : ItemIn sig (Data' d)) -> Type
+    where
+    Lin : CtorsIn sig di
+    (:<) : {0 d : DataItem sig'}
+      -> {0 di : ItemIn sig (Data' d)}
+      -> CtorsIn {d = d} sig di
+      -> {0 c : CtorItem {d = d} di}
+      -> ItemIn sig (Ctor' c)
+      -> CtorsIn {d = d} sig di
+
+public export
+record ElimItem (0 sig : Sig gs) where
+  constructor MkElimItem
+  {0 gs' : GlobNames}
+  {0 sig' : Sig gs'}
+  {0 d : DataItem sig'}
+  name : Name
+  di : ItemIn sig (Data' d)
+  csi : CtorsIn {d = d} sig di
+
+namespace Item
   public export
   data Item : Sig gs -> Type where
     Def : DefItem sig -> Item sig
     Data : DataItem sig -> Item sig
     Prim : PrimItem sig -> Item sig
-    Ctor : {0 d : DataItem sig'} -> {di : ItemIn sig (Data' d)} -> CtorItem {d = d} di -> Item sig
+    Ctor : {di : ItemIn sig (Data' d)} -> CtorItem {d = d} di -> Item sig
+    Elim : ElimItem sig -> Item sig
 
 Data' d = Data d
+
+Ctor' c = Ctor c
 
 namespace DefItem
   public export
@@ -90,7 +121,7 @@ namespace PrimItem
     name : Name
     {ps : Names}
     params : VTel gs ps [<]
-    ty : VTy gs ( ps)
+    ty : VTy gs ps
 
 public export
 (.name) : Item sig -> Name
@@ -98,6 +129,7 @@ public export
 (.name) (Data d) = d.name
 (.name) (Prim p) = p.name
 (.name) (Ctor c) = c.name
+(.name) (Elim e) = e.name
 
 public export
 (.arityRel) : {sig : Sig gs} -> Item sig -> Names
@@ -111,6 +143,7 @@ public export
 (.globName) (Data d) = MkGlobName d.name DataGlob
 (.globName) (Prim p) = MkGlobName p.name PrimGlob
 (.globName) (Ctor c) = MkGlobName c.name CtorGlob
+(.globName) (Elim e) = MkGlobName e.name ElimGlob
 
 namespace Sig
   public export
@@ -137,15 +170,44 @@ getDataItem : {sig : Sig gs} -> {0 d : DataItem sig'} -> ItemIn sig (Data d) -> 
 getDataItem i = case getItem i of
   Val (Data d) => Val d
 
+namespace CtorsIn
+  public export
+  0 (.arity) : CtorsIn sig di -> Names
+  (.arity) [<] = [<]
+  (.arity) ((:<) cs {c} ci) = cs.arity :< c.name
+
+  public export
+  (.arityRel) : {0 sig' : Sig gs'}
+    -> {0 d : DataItem sig'}
+    -> {sig : Sig gs}
+    -> {0 di : ItemIn sig (Data d)}
+    -> CtorsIn sig di
+    -> Names
+  (.arityRel) [<] = [<]
+  (.arityRel) ((:<) cs ci) = let c = getItem ci in cs.arityRel :< c.value.name
+
+  public export
+  arityRelSame : {0 sig' : Sig gs'}
+    -> {0 d : DataItem sig'}
+    -> {sig : Sig gs}
+    -> {0 di : ItemIn sig (Data d)}
+    -> (cin : CtorsIn sig di)
+    -> cin.arityRel = cin.arity
+  arityRelSame [<] = Refl
+  arityRelSame ((:<) cs ci) = rewrite (getItem ci).identity in rewrite arityRelSame cs in Refl
+
 (.arityRel) (Def d) = d.ps
 (.arityRel) (Data d) = d.ps ++ d.is
 (.arityRel) (Prim p) = p.ps
 (.arityRel) (Ctor {di = di} c) = let d = getDataItem di in d.value.ps ++ c.as
+(.arityRel) (Elim t) = let d = getDataItem t.di in
+  d.value.ps ++ [< MkName "E"] ++ t.csi.arityRel ++ d.value.is ++ [< MkName "s"]
 
 (.arity) (Def d) = d.ps
 (.arity) (Data d) = d.ps ++ d.is
 (.arity) (Prim p) = p.ps
 (.arity) (Ctor {d = d} c) = d.ps ++ c.as
+(.arity) (Elim t) = t.d.ps ++ [< MkName "E"] ++ t.csi.arity ++ t.d.is ++ [< MkName "s"]
 
 public export
 0 arityRelSame : (x : Item sig) -> x.arityRel = x.arity
@@ -153,6 +215,7 @@ arityRelSame (Def d) = Refl
 arityRelSame (Data d) = Refl
 arityRelSame (Prim p) = Refl
 arityRelSame (Ctor {d = d, di = di} c) = rewrite (getDataItem di).identity in Refl
+arityRelSame (Elim t) = rewrite (getDataItem t.di).identity in rewrite arityRelSame t.csi in Refl
 
 public export
 globWeakenDefItem : DefItem sig -> DefItem (sig :< i)
@@ -203,11 +266,16 @@ globWeakenItem (Def d) = Def (globWeakenDefItem d)
 globWeakenItem (Data d) = Data (globWeakenDataItem d)
 globWeakenItem (Prim p) = Prim (globWeakenPrimItem p)
 globWeakenItem (Ctor c) = Ctor (globWeakenCtor c)
+globWeakenItem (Elim t) = ?fsdkjkf
 
 public export
 globNameElem : {0 sig : Sig gs} -> {0 i : Item sig'} -> ItemIn sig i -> Elem (i.arity ** i.globName) gs
 globNameElem Here = Here
 globNameElem (There p) = There (globNameElem p)
+
+public export
+globNameIn : {0 sig : Sig gs} -> {i : Item sig'} -> ItemIn sig i -> GlobNameIn gs i.arity
+globNameIn {i} ii = MkGlobNameIn i.globName (globNameElem ii)
 
 public export
 data Ctx : GlobNamed (Named (Named Type)) where
@@ -318,6 +386,12 @@ itemTy (Ctor {di = di} c) = case getDataItem di of
     let retSp = weakenN c.args.size paramSp ++ c.rets in
     let ret = vGlob (paramSp.size + c.args.size) di retSp in
     vPis' binds ret
+itemTy (Elim (MkElimItem n di csi)) = case getDataItem di of
+  Val d =>
+    let ps = (globWeakenByItem @{globWeakenForVTel} di d.params) in
+    let paramSp = vHeres' d.params.size in
+    ?fsdjkf
+    -- vPis' ps (vPis d.params.size (d.indices) VU)
 
 public export covering
 lookupItem : Size bs -> Sig gs -> (n : Name) -> Maybe (ps : Names ** (GlobNameIn gs ps, VTy gs bs))

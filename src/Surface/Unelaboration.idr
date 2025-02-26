@@ -66,6 +66,7 @@ unelabItem sig it@(Ctor c@(MkCtorItem {di = di} n args ret)) = do
   let (_, ret') = pGatherPis ty -- hack
   modify (\(MkPFields ns) => MkPFields ((dummyLoc, n, args', ret') :: ns))
   pure $ MkPSig [<]
+unelabItem _ (Elim _) = pure $ MkPSig [<]
 
 public export covering
 unelabSig : Sig gs -> PSig

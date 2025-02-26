@@ -90,3 +90,14 @@ apLeftMMRR x = rewrite sym $ appendLinLeftNeutral q in rewrite sym $ appendLinLe
 public export
 apLeft : {f : (0 _ : SnocList a) -> Type} -> f ([<] ++ p) -> f p
 apLeft x = rewrite sym $ appendLinLeftNeutral p in x
+
+-- Displayed list
+public export
+data ForList : List t -> (t -> Type) -> Type where
+  Nil : ForList Nil f
+  Cons : {0 f : t -> Type} -> f x -> ForList xs f -> ForList (x :: xs) f
+
+public export
+forList : {0 f : t -> Type} -> (l : List t) -> (g : (x : t) -> f x) -> ForList l f
+forList [] g = Nil
+forList (x :: xs) g = Cons (g x) (forList xs g)
