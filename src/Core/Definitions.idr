@@ -393,14 +393,24 @@ methodsTel : {sig : Sig us} -> {0 d : DataItem sig'}
   -> Singleton d
   -> (csi : CtorsIn sig di)
   -> VTel us csi.arity (d.ps :< m)
-methodsTel di (Val d) csi = ?fsdkjlfksdjklf
+methodsTel di (Val d) [<] = [<]
+methodsTel di (Val d) (te :< ci) = case getItem ci of
+  Val (Ctor c) =>
+    let binds = weakenVTel (c.args) in
+    let paramSp = (vHeres' d.params.size) in
+    let datRetSp = (weakenN c.args.size (weaken paramSp) ++ weaken c.rets) in
+    let dat = vGlob ((SS paramSp.size) + c.args.size) di datRetSp in
+    let motiveApplied = VRigid LZ (weaken c.rets :< dat) in
+    let ms' = methodsTel di (Val d) te in
+    let method = vPis (SS paramSp.size) binds motiveApplied in
+    (ms' :< (c.name, ?fksdjf))
 
 public export covering
 sectionTy : {sig : Sig us} -> {0 d : DataItem sig'}
   -> (di : ItemIn sig (Data d))
   -> Singleton d
   -> (csi : CtorsIn sig di)
-  -> VTy us ((d.ps :< m) ++ ms)
+  -> VTy us ((d.ps :< m) ++ csi.arity)
 sectionTy di (Val d) csi = ?fjksdklfjskldjflsjdlkfjsdklf
 
 public export covering

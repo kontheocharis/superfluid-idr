@@ -11,7 +11,7 @@ mutual
   public export
   weakenClosure : Closure gs n ns -> Closure gs n (ns :< n')
   weakenClosure (Cl vs env t) = Cl vs (weakenSpine env) t
-  
+
   public export
   weakenMaybeLazyVTm : Maybe (Lazy (VTm gs ns)) -> Maybe (Lazy (VTm gs (ns :< n)))
   weakenMaybeLazyVTm (Just t) = Just $ delay (weakenVTm (assert_smaller (Just t) (force t)))
@@ -29,12 +29,12 @@ mutual
   weakenSpine : Spine (VTm gs) ps ns -> Spine (VTm gs) ps (ns :< n)
   weakenSpine [<] = [<]
   weakenSpine (xs :< x) = weakenSpine xs :< weakenVTm x
-  
+
   public export
   weakenVTel : VTel gs ps ns -> VTel gs ps (ns :< n)
   weakenVTel [<] = [<]
   weakenVTel (xs :< (m, cl)) = weakenVTel xs :< (m, weakenClosure cl)
-  
+
   public export
   globWeakenVTel : VTel gs ps ns -> VTel (gs :< g) ps ns
   globWeakenVTel [<] = [<]
@@ -54,7 +54,7 @@ mutual
   globWeakenSTm SU = SU
   globWeakenSTm (SLet n a b) = SLet n (globWeakenSTm a) (globWeakenSTm b)
   globWeakenSTm (SGlob n sp) = SGlob (globWeaken n) (globWeakenSTmSpine sp)
-  
+
   public export
   globReorderSTm : STm (gs :< g :< g') ns -> STm (gs :< g' :< g) ns
   globReorderSTm (SVar i) = SVar i
@@ -89,7 +89,7 @@ mutual
   globWeakenSpine : {0 f : GlobNamed (Named Type)} -> (f gs ns -> f (gs :< g) ns) -> Spine (f gs) ps ns -> Spine (f (gs :< g)) ps ns
   globWeakenSpine n [<] = [<]
   globWeakenSpine {f} n (sp :< t) = globWeakenSpine {f} n sp :< n t
-  
+
   public export
   globReorderSpine : {0 f : GlobNamed (Named Type)} -> (f (gs :< g :< g') ns -> f (gs :< g' :< g) ns) -> Spine (f (gs :< g :< g')) ps ns -> Spine (f (gs :< g' :< g)) ps ns
   globReorderSpine n [<] = [<]
@@ -122,7 +122,7 @@ mutual
   public export
   globReorderClosure : Closure (gs :< g :< g') n ns -> Closure (gs :< g' :< g) n ns
   globReorderClosure (Cl vs env t) = Cl vs (globReorderEnv env) (globReorderSTm t)
-  
+
   public export
   globWeakenMaybeLazyVTm : Maybe (Lazy (VTm gs ns)) -> Maybe (Lazy (VTm (gs :< g) ns))
   globWeakenMaybeLazyVTm (Just t) = Just $ delay (globWeakenVTm (assert_smaller (Just t) (force t)))
@@ -208,7 +208,7 @@ public export
 GlobWeaken (\gs => Tel (VTm gs) ps) where
   globWeaken = globWeakenTel
   globReorder = globReorderTel
-  
+
 Weaken (VTel gs ps) where
   weaken = weakenVTel
 
