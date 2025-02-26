@@ -177,6 +177,11 @@ namespace CtorsIn
   (.arity) ((:<) cs {c} ci) = cs.arity :< c.name
 
   public export
+  (.size) : (csi : CtorsIn sig di) -> Size csi.arity
+  (.size) [<] = SZ
+  (.size) (cs :< _) = SS (cs.size)
+
+  public export
   (.arityRel) : {0 sig' : Sig gs'}
     -> {0 d : DataItem sig'}
     -> {sig : Sig gs}
@@ -375,6 +380,30 @@ lookupLocal ctx@(Def ctx' n ty tm) m = case decEq n m of
   No q => map (\(i, t, e) => (IS i, t, There e)) (lookupLocal ctx' m)
 
 public export covering
+motiveTy : {sig : Sig us} -> {0 d : DataItem sig'} -> (di : ItemIn sig (Data d)) -> Singleton d -> VTy us d.ps
+motiveTy di (Val d) =
+  let is = (globWeakenByItem @{globWeakenForVTel} di d.indices) in
+  let psisSize = d.params.size + d.indices.size in
+  let dat = vGlob psisSize di (vHeres' psisSize) in
+  vPis d.params.size is (vPis psisSize (singleton (MkName "M") psisSize dat) VU)
+
+public export covering
+methodsTel : {sig : Sig us} -> {0 d : DataItem sig'}
+  -> (di : ItemIn sig (Data d))
+  -> Singleton d
+  -> (csi : CtorsIn sig di)
+  -> VTel us csi.arity (d.ps :< m)
+methodsTel di (Val d) csi = ?fsdkjlfksdjklf
+
+public export covering
+sectionTy : {sig : Sig us} -> {0 d : DataItem sig'}
+  -> (di : ItemIn sig (Data d))
+  -> Singleton d
+  -> (csi : CtorsIn sig di)
+  -> VTy us ((d.ps :< m) ++ ms)
+sectionTy di (Val d) csi = ?fjksdklfjskldjflsjdlkfjsdklf
+
+public export covering
 itemTy : {sig : Sig us} -> Item sig -> VTy us [<]
 itemTy (Def d) = vPis' d.params d.ty
 itemTy (Data d) = vPis' d.params (vPis d.params.size d.indices VU)
@@ -386,12 +415,13 @@ itemTy (Ctor {di = di} c) = case getDataItem di of
     let retSp = weakenN c.args.size paramSp ++ c.rets in
     let ret = vGlob (paramSp.size + c.args.size) di retSp in
     vPis' binds ret
-itemTy (Elim (MkElimItem n di csi)) = case getDataItem di of
+itemTy (Elim e@(MkElimItem n di csi)) = case getDataItem di of
   Val d =>
     let ps = (globWeakenByItem @{globWeakenForVTel} di d.params) in
-    let paramSp = vHeres' d.params.size in
-    ?fsdjkf
-    -- vPis' ps (vPis d.params.size (d.indices) VU)
+    let motive = motiveTy di (Val d) in
+    let methods = methodsTel di (Val d) csi in
+    let section = sectionTy di (Val d) csi in
+    vPis' ps (vPis ps.size (singleton (MkName "E") ps.size motive) (vPis (SS ps.size) methods section))
 
 public export covering
 lookupItem : Size bs -> Sig gs -> (n : Name) -> Maybe (ps : Names ** (GlobNameIn gs ps, VTy gs bs))

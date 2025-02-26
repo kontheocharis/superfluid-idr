@@ -13,7 +13,7 @@ public export
 record GlobEnv (0 gs : GlobNames) where
   constructor MkGlobEnv
   replace : {0 ps : Names} -> (n : GlobNameIn gs ps) -> Maybe (STm gs ps)
-  
+
 public export
 noReplace : GlobEnv gs
 noReplace = MkGlobEnv (\_ => Nothing)
@@ -108,7 +108,7 @@ vPis nss (as :< (n, a)) b = vPis nss as (VPi n (apply noReplace nss a) (closeVal
 public export covering
 vPis' : VTel gs ps [<] -> VTm gs ps -> VTm gs [<]
 vPis' as b = vPis SZ as (rewrite appendLinLeftNeutral ps in b)
-  
+
 public export covering
 vTelToTelVTm : Size ns -> VTel gs ps ns -> Tel (VTm gs) ps ns
 vTelToTelVTm _ [<] = [<]
@@ -126,3 +126,7 @@ public export covering
 public export covering
 (++.) : VTel gs ps [<] -> VTel gs qs ps -> VTel gs (ps ++ qs) [<]
 (++.) a b = a ++ (rewrite appendLinLeftNeutral ps in b)
+
+public export covering
+singleton : (n : Name) -> Size ns -> VTm gs ns -> VTel gs [< n] ns
+singleton n sz t = [< (n, closeVal SZ idEnv t)]
