@@ -168,6 +168,10 @@ Weaken (\ns => Spine (VTm gs) ps ns) where
   weaken = weakenSpine
 
 public export
+[weakenForSpine] Weaken (\ns => Spine (VTm gs) ps ns) where
+  weaken = weakenSpine
+
+public export
 Weaken (Closure gs n) where
   weaken = weakenClosure
 

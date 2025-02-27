@@ -396,7 +396,7 @@ methodsTel : {sig : Sig us} -> {0 d : DataItem sig'}
 methodsTel di (Val d) [<] = [<]
 methodsTel di (Val d) (te :< ci) = case getItem ci of
   Val (Ctor c) =>
-    -- prase the typechecker for making my indices correct
+    -- praise the typechecker for making my indices correct
     let binds = weakenVTel (c.args) in
     let paramSp = (vHeres' d.params.size) in
     let rets = subSpine (growEnvN (SS d.params.size) c.args.size (proj d.params.size)) c.rets in
@@ -413,7 +413,15 @@ sectionTy : {sig : Sig us} -> {0 d : DataItem sig'}
   -> Singleton d
   -> (csi : CtorsIn sig di)
   -> VTy us ((d.ps :< m) ++ csi.arity)
-sectionTy di (Val d) csi = ?fjksdklfjskldjflsjdlkfjsdklf
+sectionTy di (Val d) csi =
+  let indices = (globWeakenByItem @{globWeakenForVTel} di d.indices) in
+  let paramSp = weakenN @{weakenForSpine} d.indices.size (weakenSpine (vHeres' d.params.size)) in
+  let indexSp = vHeres (SS d.params.size) d.indices.size in
+  let subjectTy = vGlob (SS d.params.size + d.indices.size) di (paramSp ++ indexSp) in
+  let motiveSec = weaken (VRigid (weakenN d.indices.size (lastLvl d.params.size)) indexSp) in
+  weakenN csi.size $ vPis (SS d.params.size) (weakenVTel indices)
+    (vPis (SS d.params.size + d.indices.size)
+      (singleton (MkName "s") (SS d.params.size + d.indices.size) subjectTy) motiveSec)
 
 public export covering
 itemTy : {sig : Sig us} -> Item sig -> VTy us [<]
