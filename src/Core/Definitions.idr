@@ -396,14 +396,16 @@ methodsTel : {sig : Sig us} -> {0 d : DataItem sig'}
 methodsTel di (Val d) [<] = [<]
 methodsTel di (Val d) (te :< ci) = case getItem ci of
   Val (Ctor c) =>
+    -- prase the typechecker for making my indices correct
     let binds = weakenVTel (c.args) in
     let paramSp = (vHeres' d.params.size) in
-    let datRetSp = (weakenN c.args.size (weaken paramSp) ++ weaken c.rets) in
+    let rets = subSpine (growEnvN (SS d.params.size) c.args.size (proj d.params.size)) c.rets in
+    let datRetSp = weakenN c.args.size (weaken paramSp) ++ rets in
     let dat = vGlob ((SS paramSp.size) + c.args.size) di datRetSp in
-    let motiveApplied = VRigid LZ (weaken c.rets :< dat) in
+    let motiveApplied = VRigid (weakenN c.args.size LZ) ((:<) {n = MkName "M"} rets dat) in
     let ms' = methodsTel di (Val d) te in
     let method = vPis (SS paramSp.size) binds motiveApplied in
-    (ms' :< (c.name, ?fksdjf))
+    (ms' :< (c.name, closeVal te.size (idEnv @{SS d.params.size}) (weakenN te.size method)))
 
 public export covering
 sectionTy : {sig : Sig us} -> {0 d : DataItem sig'}

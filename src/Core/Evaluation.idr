@@ -93,6 +93,11 @@ sub : Env gs n m -> VTm gs m -> VTm gs n
 sub env t = eval noReplace env (quote noReplace env.size t)
 
 public export covering
+subSpine : Env gs n m -> Spine (VTm gs) ps m -> Spine (VTm gs) ps n
+subSpine env [<] = [<]
+subSpine env (xs :< x) = subSpine env xs :< sub env x
+
+public export covering
 closeVal : Size us -> Env gs ns ks -> VTm gs (ks ++ us) -> Closure gs us ns
 closeVal vs env t = Cl vs env (quote noReplace (env.size + vs) t)
 
@@ -130,3 +135,15 @@ public export covering
 public export covering
 singleton : (n : Name) -> Size ns -> VTm gs ns -> VTel gs [< n] ns
 singleton n sz t = [< (n, closeVal SZ idEnv t)]
+
+public export
+fill : VTm gs ns -> Size ns -> Env gs ns (ns :< n)
+fill t sz = idEnv :< t
+
+public export
+fillSpine : Spine (VTm gs) ps ns -> Size ns -> Env gs ns (ns ++ ps)
+fillSpine t sz = idEnv ++ t
+
+public export
+proj : Size ns -> Env gs (ns :< n) ns
+proj sz = weakenSpine idEnv
