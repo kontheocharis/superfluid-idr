@@ -257,21 +257,43 @@ globWeakenDefItemTm Here y = y
 globWeakenDefItemTm @{f} (There x) y = globWeaken $ globWeakenDefItemTm @{f} x y
 
 public export
-globWeakenCtor : {0 sig : Sig gs}
+globWeakenCtorItem : {0 sig : Sig gs}
   -> {0 d : DataItem sig'}
   -> {0 di : ItemIn sig (Data d)}
   -> {0 i : Item sig}
   -> CtorItem di
   -> CtorItem (There {i} di)
-globWeakenCtor (MkCtorItem n args rets) = MkCtorItem n (globWeakenVTel args) (globWeakenVTmSpine rets)
+globWeakenCtorItem (MkCtorItem n args rets) = MkCtorItem n (globWeakenVTel args) (globWeakenVTmSpine rets)
 
 public export
 globWeakenItem : Item sig -> Item (sig :< i)
+
+public export
+globWeakenElimItem : ElimItem sig -> ElimItem (sig :< i)
+
 globWeakenItem (Def d) = Def (globWeakenDefItem d)
 globWeakenItem (Data d) = Data (globWeakenDataItem d)
 globWeakenItem (Prim p) = Prim (globWeakenPrimItem p)
-globWeakenItem (Ctor c) = Ctor (globWeakenCtor c)
-globWeakenItem (Elim t) = ?fsdkjkf
+globWeakenItem (Ctor c) = Ctor (globWeakenCtorItem c)
+globWeakenItem (Elim t) = Elim (globWeakenElimItem t)
+
+-- This doesn't seem to be possible; we probably need to change how constructors are stored in a signature.
+public export
+globWeakenCtorIn : ItemIn sig (Ctor {di = di} i) -> ItemIn (sig :< j) (Ctor {di = There di} i)
+globWeakenCtorIn Here = ?ap
+globWeakenCtorIn (There p) = ?ap2
+
+public export
+globWeakenCtors : {0 sig : Sig gs}
+  -> {0 d : DataItem sig'}
+  -> {0 di : ItemIn sig (Data d)}
+  -> {0 i : Item sig}
+  -> CtorsIn sig di
+  -> CtorsIn (sig :< i) (There {i = i} di)
+globWeakenCtors [<] = [<]
+globWeakenCtors ((:<) {c = c} csi ci) = globWeakenCtors csi :< globWeakenCtorIn ci
+
+globWeakenElimItem (MkElimItem n di csi) = MkElimItem n (There di) (globWeakenCtors csi)
 
 public export
 globNameElem : {0 sig : Sig gs} -> {0 i : Item sig'} -> ItemIn sig i -> Elem (i.arity ** i.globName) gs
