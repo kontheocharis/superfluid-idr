@@ -1,0 +1,38 @@
+
+
+def foo : (n : Fin 4) -> FinVect n Nat -> Nat {
+  [] => 0
+  [k] => k
+  [k, j] => k + j
+  [k, j, l] => k + j + l
+  _ =>
+}
+
+
+
+def index : [A : Type] -> Nat -> List A -> Maybe A {
+  \n xs => case xs {
+    [] => nothing,
+    [x, ..xs'] => case n {
+      z => just x,
+      s n' => index n' xs'
+    }
+  }
+}
+
+
+data ArrayListF (A : Type) (F : Type) : Type {
+  nil : ArrayListF F A,
+  cons : A -> F -> ArrayListF F A
+}
+
+def lengthF : [A : Type] -> ArrayListF A Nat -> Nat {
+  \xs => case xs {
+    nil => 0,
+    cons x xs' => 1 + xs'
+  }
+}
+
+repr (Fix (ArrayListF A)) as Array A {...}
+
+repr lengthF l as array-length (repr l) by refl
