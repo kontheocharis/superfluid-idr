@@ -470,36 +470,36 @@ itemTy {gs} {sig} (Elim (MkElimItem _ dg csg)) with (getDataGlob {gs} sig dg)
     let section = sectionTy sig dg csg in
     vPis' params (vPis ps.size (singleton (MkName "E") ps.size motive) (vPis (SS ps.size) methods section))
 
--- public export covering
--- lookupItem : Size bs -> Sig gs -> (n : Name) -> Maybe (ps : Names ** (GlobNameIn gs ps, VTy gs bs))
--- lookupItem s [<] _ = Nothing
--- lookupItem s sig@(sig' :< it) m = case decEq it.name m of
---   Yes p => Just (it.arityRel ** rewrite arityRelSame it in (MkGlobNameIn it.globName Here, weakenTo s (globWeaken (itemTy it))))
---   No q => map (\(ps ** (g, ty)) => (ps ** (MkGlobNameIn g.name (There g.contained), globWeaken ty))) (lookupItem s sig' m)
+public export covering
+lookupItem : Size bs -> Sig gs -> (n : Name) -> Maybe (ps : Names ** (GlobNameIn gs ps, VTy gs bs))
+lookupItem s [<] _ = Nothing
+lookupItem s sig@(sig' :< it) m = case decEq it.name m of
+  Yes p => Just (it.arity ** (MkGlobNameIn it.globName Here, weakenTo s (globWeaken (itemTy it))))
+  No q => map (\(ps ** (g, ty)) => (ps ** (MkGlobNameIn g.name (There g.contained), globWeaken ty))) (lookupItem s sig' m)
 
--- public export
--- data LookupResult : GlobNamed (Named (Named Type)) where
---   FoundItem : (ps : Names) -> GlobNameIn gs ps -> VTy gs bs -> LookupResult gs ns bs
---   FoundLocal : Idx ns -> VTerm gs bs -> Elem n ns -> LookupResult gs ns bs
---   NotFound : LookupResult gs ns bs
+public export
+data LookupResult : GlobNamed (Named (Named Type)) where
+  FoundItem : (ps : Names) -> GlobNameIn gs ps -> VTy gs bs -> LookupResult gs ns bs
+  FoundLocal : Idx ns -> VTerm gs bs -> Elem n ns -> LookupResult gs ns bs
+  NotFound : LookupResult gs ns bs
 
--- public export covering
--- lookupName : Context gs ns bs -> (n : Name) -> LookupResult gs ns bs
--- lookupName (MkContext sig ctx) m = case lookupLocal ctx m of
---     Just (i, t, e) => FoundLocal i t e
---     Nothing => case lookupItem ctx.bindsSize sig m of
---       Just (ps ** (g, t)) => FoundItem ps g t
---       Nothing => NotFound
+public export covering
+lookupName : Context gs ns bs -> (n : Name) -> LookupResult gs ns bs
+lookupName (MkContext sig ctx) m = case lookupLocal ctx m of
+    Just (i, t, e) => FoundLocal i t e
+    Nothing => case lookupItem ctx.bindsSize sig m of
+      Just (ps ** (g, t)) => FoundItem ps g t
+      Nothing => NotFound
 
--- public export
--- unfold : Sig gs -> GlobNameIn gs ps -> Maybe (STm gs ps)
--- unfold sig n = case getGlob sig n of
---   MkGetGlob (Def (MkDefItem name params ty (Just tm))) i Refl => Just $ globWeakenDefItemTm i tm
---   _ => Nothing
+public export
+unfold : Sig gs -> GlobNameIn gs ps -> Maybe (STm gs ps)
+unfold sig n = case getGlob sig n of
+  MkGetGlob (Def (MkDefItem name params ty (Just tm))) i Refl => Just $ globWeakenDefItemTm i tm
+  _ => Nothing
 
--- asGlobEnv sig = MkGlobEnv (\n => unfold sig n)
+asGlobEnv sig = MkGlobEnv (\n => unfold sig n)
 
--- public export covering
--- unfoldFully : Sig gs -> VTm gs bs -> VTm gs bs
--- unfoldFully sig (VGlob n sp pp (Just t')) = t'
--- unfoldFully sig t = t
+public export covering
+unfoldFully : Sig gs -> VTm gs bs -> VTm gs bs
+unfoldFully sig (VGlob n sp pp (Just t')) = t'
+unfoldFully sig t = t
