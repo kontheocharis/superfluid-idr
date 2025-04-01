@@ -67,6 +67,12 @@ namespace Spine
     (:<) : (c : Spine f ps ns) -> f ns -> Spine f (ps :< n) ns
 
   public export
+  get : Spine f ps ns -> Idx ps -> f ns
+  get Lin p impossible
+  get (c :< t) IZ = t
+  get (c :< t) (IS n) = get c n
+
+  public export
   (++) : Spine f' ps' ns' -> Spine f' qs' ns' -> Spine f' (ps' ++ qs') ns'
   (++) te [<] = te
   (++) te ((:<) {ps = ps} te' t) = (te ++ te') :< t

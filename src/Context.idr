@@ -145,6 +145,10 @@ record GlobNameIn (0 gs : GlobNames) (0 ps : Names) where
   name : GlobName ps
   contained : Elem (ps ** name) gs
 
+public export
+0 GlobNameInFor : GlobKind -> (0 _ : GlobNames) -> (0 _ : Names) -> Type
+GlobNameInFor k gs ps = (g : GlobNameIn gs ps ** g.name.kind = k)
+
 matchNames : (a : GlobNameIn gs ps) -> (b : GlobNameIn gs ps')
   -> elemToNat a.contained = elemToNat b.contained
   -> ps = ps'
@@ -230,6 +234,15 @@ GlobWeaken GlobNameIn where
     There Here => Here
     There (There e) => There (There e)
     Here => There Here)
+
+public export
+[globWeakenForGlobNameInFor] GlobWeaken (GlobNameInFor k) where
+  globWeaken (MkGlobNameIn n e ** p) = (MkGlobNameIn n (There e) ** p)
+
+  globReorder (MkGlobNameIn n e ** p) = (MkGlobNameIn n (case e of
+    There Here => Here
+    There (There e) => There (There e)
+    Here => There Here) ** p)
 
 public export
 Weaken Lvl where
