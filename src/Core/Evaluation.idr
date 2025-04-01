@@ -147,3 +147,70 @@ fillSpine t sz = idEnv ++ t
 public export
 proj : Size ns -> Env gs (ns :< n) ns
 proj sz = weakenSpine idEnv
+
+
+0 HSpine : Type -> GlobNames -> Names -> Type
+
+partial
+public export
+data HTm : (v : Type) -> GlobNamed Type where
+  HVar : v -> HTm v gs
+  HLam : (n : Name) -> (v -> HTm v gs) -> HTm v gs
+  HApp : HTm v gs -> (0 n : Name) -> HTm v gs -> HTm v gs
+  HPi : (n : Name) -> HTm v gs -> (v -> HTm v gs) -> HTm v gs
+  HU : HTm v gs
+  HLet : (n : Name) -> HTm v gs -> (v -> HTm v gs) -> HTm v gs
+  HGlob : (n : GlobNameIn gs ps) -> HSpine v gs ps -> HTm v gs
+
+HSpine v gs ps = Spine (\_ => HTm v gs) ps [<]
+
+public export covering
+hApps : HTm v gs -> HSpine v gs ps -> HTm v gs
+hApps f [<] = f
+hApps f ((:<) {n} xs x) = HApp (hApps f xs) n x
+
+public export covering
+lift : STm gs ns -> (HSpine v gs ns -> HTm v gs)
+
+public export covering
+liftSpine : Spine (STm gs) ps ns -> (HSpine v gs ns -> HSpine v gs ps)
+liftSpine [<] sp = [<]
+liftSpine (xs :< x) sp = liftSpine xs sp :< lift x sp
+
+lift (SVar n) sp = get sp n
+lift (SLam n t) sp = HLam n (\x => lift t (sp :< HVar x))
+lift (SApp f n x) sp = HApp (lift f sp) n (lift x sp)
+lift (SPi n t f) sp = HPi n (lift t sp) (\x => lift f (sp :< HVar x))
+lift SU sp = HU
+lift (SLet n t f) sp = HLet n (lift t sp) (\x => lift f (sp :< HVar x))
+lift (SGlob n sp') sp = HGlob n (liftSpine sp' sp)
+
+weaken : HTm (Idx ns) gs -> HTm (Idx (ns :< n)) gs
+
+weakenSpine : HSpine (Idx ns) gs ps -> HSpine (Idx (ns :< n)) gs ps
+weakenSpine [<] = [<]
+weakenSpine ((:<) {n} xs x) = weakenSpine xs :< weaken x
+
+weaken (HVar x) = HVar (IS x)
+weaken (HLam n t) = HLam n (\x => case x of
+  IZ => weaken (t ?fdf)
+  IS x' => weaken (t x'))
+weaken (HApp f n x) = HApp (weaken f) n (weaken x)
+weaken (HPi n t f) = HPi n (weaken t) (\x => weaken (f ?xb))
+weaken HU = HU
+weaken (HLet n t f) = HLet n (weaken t) (\x => weaken (f ?xc))
+weaken (HGlob n sp) = HGlob n (weakenSpine sp)
+
+
+-- lower : HTm (Idx ns) gs -> STm gs ns
+-- lower (HVar x) = SVar x
+-- lower (HLam n t) = SLam n (lower )
+-- lower (HApp f n x) = SApp (lower f) n (lower x)
+-- lower (HPi n t f) = SPi n (lower t) (\x => lower (f x))
+-- lower HU = SU
+-- lower (HLet n t f) = SLet n (lower t) (\x => lower (f x))
+-- lower (HGlob n sp) = SGlob n (lowerSpine sp)
+
+-- lowerSpine : HSpine v gs ps -> Spine (STm gs) ps ns
+-- lowerSpine [<] = [<]
+-- lowerSpine ((:<) {n} xs x) = lowerSpine xs :< lower x

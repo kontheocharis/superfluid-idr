@@ -433,19 +433,19 @@ methodsTel sig [<] = [<]
 methodsTel sig (csg :< cg) with (getCtorGlob sig cg)
   _ | MkGetCtorGlob (MkCtorItem name dg' args' rets') ci Refl Refl
     with (getDataGlob sig (globWeakenByItem @{globWeakenForDataGlobNameIn} ci dg'))
-    _ | MkGetDataGlob (MkDataItem dataName params' indices') di Refl Refl =
-      let args = globWeakenByItem @{globWeakenForVTel} ci args' in
-      let rets = globWeakenByItem @{globWeakenForSpine} ci rets' in
-      let params = globWeakenByItem @{globWeakenForVTel} di params' in
-      let binds = weakenVTel args in
-      let paramSp = vHeres' params.size in
-      let rets = subSpine (growEnvN (SS params.size) args.size (proj params.size)) rets in
-      let datRetSp = weakenN args.size (weaken paramSp) ++ rets in
-      let dat = vGlob ((SS paramSp.size) + args.size) di datRetSp in
-      let motiveApplied = VRigid (weakenN args.size LZ) ((:<) {n = MkName "M"} rets dat) in
-      let ms' = methodsTel sig csg in
-      let method = vPis (SS paramSp.size) binds motiveApplied in
-      (ms' :< ((fst cg.unwrap).name.name, closeVal csg.size (idEnv @{SS params.size}) (weakenN csg.size method)))
+    _ | MkGetDataGlob (MkDataItem dataName params' indices') di Refl Refl = ?tcBoost
+      -- let args = globWeakenByItem @{globWeakenForVTel} ci args' in
+      -- let rets = globWeakenByItem @{globWeakenForSpine} ci rets' in
+      -- let params = globWeakenByItem @{globWeakenForVTel} di params' in
+      -- let binds = weakenVTel args in
+      -- let paramSp = vHeres' params.size in
+      -- let rets = subSpine (growEnvN (SS params.size) args.size (proj params.size)) rets in
+      -- let datRetSp = weakenN args.size (weaken paramSp) ++ rets in
+      -- let dat = vGlob ((SS paramSp.size) + args.size) di datRetSp in
+      -- let motiveApplied = VRigid (weakenN args.size LZ) ((:<) {n = MkName "M"} rets dat) in
+      -- let ms' = methodsTel sig csg in
+      -- let method = vPis (SS paramSp.size) binds motiveApplied in
+      -- (ms' :< ((fst cg.unwrap).name.name, closeVal csg.size (idEnv @{SS params.size}) (weakenN csg.size method)))
 
 public export covering
 sectionTy :  (sig : Sig gs)
@@ -506,8 +506,8 @@ lookupName (MkContext sig ctx) m = case lookupLocal ctx m of
 
 public export
 unfold : Sig gs -> GlobNameIn gs ps -> Maybe (STm gs ps)
-unfold sig n = case getGlob sig n of
-  MkGetGlob (Def (MkDefItem name params ty (Just tm))) i Refl => Just $ globWeakenDefItemTm i tm
+unfold sig n = case getGlob sig (n ** Refl) of
+  MkGetGlob (Def (MkDefItem name params ty (Just tm))) i Refl _ => Just $ globWeakenDefItemTm i tm
   _ => Nothing
 
 asGlobEnv sig = MkGlobEnv (\n => unfold sig n)

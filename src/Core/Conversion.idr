@@ -18,6 +18,31 @@ orFalse : (b : Maybe a) -> (a -> Bool) -> Bool
 orFalse (Just x) f = f x
 orFalse Nothing _ = False
 
+data SameSize : Names -> Names -> Type where
+  BSZ : SameSize [<] [<]
+  BSS : SameSize ns ns' -> SameSize (ns :< n) (ns' :< n')
+
+sameSizeSym : SameSize ns ns' -> SameSize ns' ns
+sameSizeSym BSZ = BSZ
+sameSizeSym (BSS x) = BSS (sameSizeSym x)
+
+data ConvertibleClosure : SameSize ns ns' -> Closure gs [< n] ns -> Closure gs [< n'] ns' -> Type
+
+data ConvertibleSpine : SameSize ns ns' -> Spine (VTm gs) ns ps -> Spine (VTm gs) ns' ps' -> Type
+
+convertibleSpineSameSize : (sp : Spine (VTm gs) ns ps) -> (sp' : Spine (VTm gs) ns' ps') -> ConvertibleSpine g sp sp' -> SameSize ps ps'
+
+data Convertible : SameSize bs bs' -> VTm gs bs -> VTm gs bs' -> Type where
+  CSym : Convertible g a b -> Convertible (sameSizeSym g) b a
+  CRefl : Convertible g a a
+
+
+  CU : Convertible g VU VU
+  CPi : Convertible g a b -> ConvertibleClosure g c d -> Convertible g (VPi n a c) (VPi n' b d)
+  VLam : ConvertibleClosure g a b -> Convertible g (VLam n a) (VLam n' b)
+  VRigid : l = l' -> ConvertibleSpine g sp sp' -> Convertible g (VRigid l sp) (VRigid l' sp')
+
+
 mutual
   public export covering
   convert : (sig : Sig gs) -> (s : Size bs) -> VTm gs bs -> VTm gs bs -> Bool
