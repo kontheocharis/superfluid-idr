@@ -354,23 +354,23 @@ ctors : (Tc m)
   => (d : DataItem sig)
   -> CtorsTypechecker m (gs, d.ps, d.ps) d.ps gcs
   -> (ctx : Context gs d.ps d.ps)
-  -> (di : ItemIn ctx.global (Data d))
+  -> (dg : DataGlobNameIn gs d.ps d.is)
   -> m (Context gcs d.ps d.ps)
 ctors _ Lin ctx _ = pure ctx
-ctors d (With n args ret cs) ctx di = do
+ctors d (With n args ret cs) ctx dg = do
   (ctx'', args') <- tel args ctx
   ret' <- check ret ctx'' VU
   let Val as = args'.names
   let vty = eval ctx''.globEnv ctx''.local.env ret'
-  let gData = MkGlobNameIn (Data d).globName (globNameElem di)
+  let gData = dg.unwrap
   case unfoldFully ctx''.global vty of
-    ty@(VGlob g rets [<] _) => case match g gData of
+    ty@(VGlob g rets [<] _) => case match g (fst gData) of
       Just Refl => do
-        let c : CtorItem di
-            c = MkCtorItem {di = di} n args' (lastN d.indices.size rets)
+        let c : CtorItem ctx.global
+            c = MkCtorItem n dg args' (lastN d.indices.size rets)
         let ctx''' :  Context (gs :< (d.ps ++ as ** MkGlobName n CtorGlob)) d.ps d.ps
             ctx''' = MkContext (ctx.global :< Ctor c) (globWeaken @{globWeakenCtx} ctx.local)
-        ctors d cs ctx''' (There di)
+        ctors d cs ctx''' (globWeaken @{globWeakenForDataGlobNameIn} dg)
       _ => tcError $ ExpectedFamily ctx''.local.binds ty
     ty => tcError $ ExpectedFamily ctx''.local.binds ty
 
@@ -392,5 +392,5 @@ dataItem n params indices cs = InItem $ \ctx => do
       d = MkDataItem n params' ind'
   let ctx'' :  Context (gs :< (ps ++ is ** MkGlobName n DataGlob)) ps ps
       ctx'' = MkContext (ctx'.global :< Data d) (globWeaken @{globWeakenCtx} ctx'.local)
-  ctx''' <- ctors d cs ctx'' Here
+  ctx''' <- ctors d cs ctx'' (MkDataGlobNameIn ((MkGlobNameIn (MkGlobName n DataGlob) Here) ** Refl))
   pure $ MkContext ctx'''.global [<]

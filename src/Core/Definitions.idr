@@ -34,10 +34,12 @@ namespace DataItem
 public export
 Data' : (d : DataItem sig) -> Item sig
 
+public export
 record DataGlobNameIn (0 gs : GlobNames) (0 ps : Names) (0 is : Names) where
   constructor MkDataGlobNameIn
   unwrap : GlobNameInFor DataGlob gs (ps ++ is)
 
+public export
 record CtorGlobNameIn (0 gs : GlobNames) (0 ps : Names) (0 cs : Names) where
   constructor MkCtorGlobNameIn
   unwrap : GlobNameInFor CtorGlob gs (ps ++ cs)
@@ -140,9 +142,6 @@ public export
 (.name) (Prim p) = p.name
 (.name) (Ctor c) = c.name
 (.name) (Elim e) = e.name
-
-public export
-(.arityRel) : {sig : Sig gs} -> Item sig -> Names
 
 public export
 (.arity) : {sig : Sig gs} -> Item sig -> Names
@@ -352,6 +351,7 @@ getIdx (Bind ctx _ _) (IS i) = weaken (getIdx ctx i)
 getIdx (Def ctx _ _ _) (IS i) = getIdx ctx i
 getIdx ctx IZ = thisTerm ctx
 
+public export
 record GetGlob (0 ps : Names) (0 sig : Sig gs) (0 k : GlobKind) where
   constructor MkGetGlob
   {0 gs' : GlobNames}
@@ -361,6 +361,7 @@ record GetGlob (0 ps : Names) (0 sig : Sig gs) (0 k : GlobKind) where
   sameArity : item.arity = ps
   sameKind : item.globName.kind = k
 
+public export
 record GetDataGlob (0 ps : Names) (0 is : Names) (0 sig : Sig gs) where
   constructor MkGetDataGlob
   {0 gs' : GlobNames}
@@ -370,6 +371,7 @@ record GetDataGlob (0 ps : Names) (0 is : Names) (0 sig : Sig gs) where
   sameParams : item.ps = ps
   sameIndices : item.is = is
 
+public export
 record GetCtorGlob (0 ps : Names) (0 as : Names) (0 sig : Sig gs) where
   constructor MkGetCtorGlob
   {0 gs' : GlobNames}
@@ -506,8 +508,8 @@ lookupName (MkContext sig ctx) m = case lookupLocal ctx m of
 
 public export
 unfold : Sig gs -> GlobNameIn gs ps -> Maybe (STm gs ps)
-unfold sig n = case getGlob sig n of
-  MkGetGlob (Def (MkDefItem name params ty (Just tm))) i Refl => Just $ globWeakenDefItemTm i tm
+unfold sig n = case getGlob sig (n ** Refl) of
+  MkGetGlob (Def (MkDefItem name params ty (Just tm))) i Refl _ => Just $ globWeakenDefItemTm i tm
   _ => Nothing
 
 asGlobEnv sig = MkGlobEnv (\n => unfold sig n)
