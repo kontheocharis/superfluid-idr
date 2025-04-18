@@ -22,11 +22,6 @@ namespace Env
   Env gs ns ms = Spine (VTm gs) ms ns
 
 public export
-(.size) : Env gs ns ms -> Size ms
-(.size) [<] = SZ
-(.size) (xs :< _) = SS (xs.size)
-
-public export
 record Closure (0 gs : GlobNames) (0 us : Names) (0 ns : Names) where
   constructor Cl
   {0 ks : Names}
@@ -66,12 +61,12 @@ namespace VTel
   data VTel : GlobNamed (Named (Named Type)) where
     Lin : VTel gs [<] ns
     (:<) : VTel gs ps ns -> (p : (Name, Closure gs ps ns)) -> VTel gs (ps :< fst p) ns
-    
+
   public export
   (.size) : VTel gs ps ns -> Size ps
   (.size) Lin = SZ
   (.size) (te :< _) = SS te.size
-  
+
   public export
   (.names) : VTel gs ps ns -> Singleton ps
   (.names) Lin = Val [<]

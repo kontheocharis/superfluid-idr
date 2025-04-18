@@ -233,7 +233,7 @@ globWeakenDefItemTm @{f} (There x) y = globWeaken $ globWeakenDefItemTm @{f} x y
 public export
 globWeakenCtorItem : CtorItem sig -> CtorItem (sig :< i)
 globWeakenCtorItem (MkCtorItem n dg args rets) =
-  MkCtorItem n (MkDataGlobNameIn (globWeaken (fst dg.unwrap) ** (let m = snd dg.unwrap in ?f))) (globWeakenVTel args) (globWeakenVTmSpine rets)
+  MkCtorItem n (globWeaken @{globWeakenForDataGlobNameIn} dg) (globWeakenVTel args) (globWeakenVTmSpine rets)
 
 public export
 globWeakenItem : Item sig -> Item (sig :< i)
@@ -420,11 +420,11 @@ lookupLocal ctx@(Def ctx' n ty tm) m = case decEq n m of
 public export covering
 motiveTy : (sig : Sig gs) -> DataGlobNameIn gs ps is -> VTy gs ps
 motiveTy sig dg with (getDataGlob sig dg)
-  _ | MkGetDataGlob d di Refl Refl =
-    let is = (globWeakenByItem @{globWeakenForVTel} di d.indices) in
-    let psisSize = d.params.size + d.indices.size in
-    let dat = vGlob psisSize di (vHeres' psisSize) in
-    vPis d.params.size is (vPis psisSize (singleton (MkName "M") psisSize dat) VU)
+  _ | MkGetDataGlob d di Refl Refl = ?motiveTy1
+    -- let is = (globWeakenByItem @{globWeakenForVTel} di d.indices) in
+    -- let psisSize = d.params.size + d.indices.size in
+    -- let dat = vGlob psisSize di (vHeres' psisSize) in
+    -- vPis d.params.size is (vPis psisSize (singleton (MkName "M") psisSize dat) VU)
 
 public export covering
 methodsTel : (sig : Sig gs)
@@ -435,19 +435,19 @@ methodsTel sig [<] = [<]
 methodsTel sig (csg :< cg) with (getCtorGlob sig cg)
   _ | MkGetCtorGlob (MkCtorItem name dg' args' rets') ci Refl Refl
     with (getDataGlob sig (globWeakenByItem @{globWeakenForDataGlobNameIn} ci dg'))
-    _ | MkGetDataGlob (MkDataItem dataName params' indices') di Refl Refl =
-      let args = globWeakenByItem @{globWeakenForVTel} ci args' in
-      let rets = globWeakenByItem @{globWeakenForSpine} ci rets' in
-      let params = globWeakenByItem @{globWeakenForVTel} di params' in
-      let binds = weakenVTel args in
-      let paramSp = vHeres' params.size in
-      let rets = subSpine (growEnvN (SS params.size) args.size (proj params.size)) rets in
-      let datRetSp = weakenN args.size (weaken paramSp) ++ rets in
-      let dat = vGlob ((SS paramSp.size) + args.size) di datRetSp in
-      let motiveApplied = VRigid (weakenN args.size LZ) ((:<) {n = MkName "M"} rets dat) in
-      let ms' = methodsTel sig csg in
-      let method = vPis (SS paramSp.size) binds motiveApplied in
-      (ms' :< ((fst cg.unwrap).name.name, closeVal csg.size (idEnv @{SS params.size}) (weakenN csg.size method)))
+    _ | MkGetDataGlob (MkDataItem dataName params' indices') di Refl Refl = ?methodsTel2
+      -- let args = globWeakenByItem @{globWeakenForVTel} ci args' in
+      -- let rets = globWeakenByItem @{globWeakenForSpine} ci rets' in
+      -- let params = globWeakenByItem @{globWeakenForVTel} di params' in
+      -- let binds = weakenVTel args in
+      -- let paramSp = vHeres' params.size in
+      -- let rets = subSpine (growEnvN (SS params.size) args.size (proj params.size)) rets in
+      -- let datRetSp = weakenN args.size (weaken paramSp) ++ rets in
+      -- let dat = vGlob ((SS paramSp.size) + args.size) di datRetSp in
+      -- let motiveApplied = VRigid (weakenN args.size LZ) ((:<) {n = MkName "M"} rets dat) in
+      -- let ms' = methodsTel sig csg in
+      -- let method = vPis (SS paramSp.size) binds motiveApplied in
+      -- (ms' :< ((fst cg.unwrap).name.name, closeVal csg.size (idEnv @{SS params.size}) (weakenN csg.size method)))
 
 public export covering
 sectionTy :  (sig : Sig gs)
@@ -455,15 +455,15 @@ sectionTy :  (sig : Sig gs)
   -> (csg : CtorGlobNamesIn gs dg)
   -> VTy gs ((ps :< m) ++ csg.arity)
 sectionTy sig dg csg with (getDataGlob sig dg)
-  _ | MkGetDataGlob (MkDataItem _ params indices) di Refl Refl =
-    let indices = (globWeakenByItem @{globWeakenForVTel} di indices) in
-    let paramSp = weakenN @{weakenForSpine} indices.size (weakenSpine (vHeres' params.size)) in
-    let indexSp = vHeres (SS params.size) indices.size in
-    let subjectTy = vGlob (SS params.size + indices.size) di (paramSp ++ indexSp) in
-    let motiveSec = weaken (VRigid (weakenN indices.size (lastLvl params.size)) indexSp) in
-    weakenN csg.size $ vPis (SS params.size) (weakenVTel indices)
-      (vPis (SS params.size + indices.size)
-        (singleton (MkName "s") (SS params.size + indices.size) subjectTy) motiveSec)
+  _ | MkGetDataGlob (MkDataItem _ params indices) di Refl Refl = ?sectionTy2
+    -- let indices = (globWeakenByItem @{globWeakenForVTel} di indices) in
+    -- let paramSp = weakenN @{weakenForSpine} indices.size (weakenSpine (vHeres' params.size)) in
+    -- let indexSp = vHeres (SS params.size) indices.size in
+    -- let subjectTy = vGlob (SS params.size + indices.size) di (paramSp ++ indexSp) in
+    -- let motiveSec = weaken (VRigid (weakenN indices.size (lastLvl params.size)) indexSp) in
+    -- weakenN csg.size $ vPis (SS params.size) (weakenVTel indices)
+    --   (vPis (SS params.size + indices.size)
+    --     (singleton (MkName "s") (SS params.size + indices.size) subjectTy) motiveSec)
 
 public export covering
 itemTy : {sig : Sig gs} -> Item sig -> VTy gs [<]
@@ -471,19 +471,19 @@ itemTy (Def d) = vPis' d.params d.ty
 itemTy (Data d) = vPis' d.params (vPis d.params.size d.indices VU)
 itemTy (Prim p) = vPis' p.params p.ty
 itemTy {sig} (Ctor c) = case getDataGlob sig c.dg of
-  MkGetDataGlob (MkDataItem _ params indices) di Refl Refl =>
-    let binds = (globWeakenByItem @{globWeakenForVTel} di params) ++. c.args in
-    let paramSp = vHeres' params.size in
-    let retSp = weakenN c.args.size paramSp ++ c.rets in
-    let ret = vGlob (paramSp.size + c.args.size) di retSp in
-    vPis' binds ret
+  MkGetDataGlob (MkDataItem _ params indices) di Refl Refl => ?itemTy1
+    -- let binds = (globWeakenByItem @{globWeakenForVTel} di params) ++. c.args in
+    -- let paramSp = vHeres' params.size in
+    -- let retSp = weakenN c.args.size paramSp ++ c.rets in
+    -- let ret = vGlob (paramSp.size + c.args.size) di retSp in
+    -- vPis' binds ret
 itemTy {gs} {sig} (Elim (MkElimItem _ dg csg)) with (getDataGlob {gs} sig dg)
- _ | MkGetDataGlob (MkDataItem _ {ps} params' _) di Refl Refl =
-    let params = globWeakenByItem @{globWeakenForVTel} di params' in
-    let motive = motiveTy sig dg in
-    let methods = methodsTel sig csg in
-    let section = sectionTy sig dg csg in
-    vPis' params (vPis ps.size (singleton (MkName "E") ps.size motive) (vPis (SS ps.size) methods section))
+ _ | MkGetDataGlob (MkDataItem _ {ps} params' _) di Refl Refl = ?itemTy2
+    -- let params = globWeakenByItem @{globWeakenForVTel} di params' in
+    -- let motive = motiveTy sig dg in
+    -- let methods = methodsTel sig csg in
+    -- let section = sectionTy sig dg csg in
+    -- vPis' params (vPis ps.size (singleton (MkName "E") ps.size motive) (vPis (SS ps.size) methods section))
 
 public export covering
 lookupItem : Size bs -> Sig gs -> (n : Name) -> Maybe (ps : Names ** (GlobNameIn gs ps, VTy gs bs))

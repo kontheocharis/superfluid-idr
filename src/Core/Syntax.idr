@@ -12,8 +12,6 @@ public export
 data STm : GlobNamed (Named Type)
 
 namespace Spine
-  public export
-  data Spine : (Named Type) -> Named (Named Type) where
 
 data STm where
   SVar : Idx ns -> STm gs ns
@@ -44,48 +42,6 @@ isPat (SPi n a b) = No (\case Refl impossible)
 isPat SU = No (\case Refl impossible)
 isPat (SLet n a b) = No (\case Refl impossible)
 
-namespace Tel
-  public export
-  data Tel : (Named Type) -> Named (Named Type) where
-    Lin : Tel f [<] ns
-    (:<) : (c : Tel f ps ns) -> (p : (Name, f (ns ++ ps))) -> Tel f (ps :< fst p) ns
-
-  public export
-  (++) : Tel f' ps' ns' -> Tel f' qs' (ns' ++ ps') -> Tel f' (ps' ++ qs') ns'
-  (++) te [<] = te
-  (++) te ((:<) {ps = ps} te' (n, t)) = (te ++ te') :< (n, rewrite appendAssociative ns' ps' ps in t)
-
-  export infixr 5 ++.
-
-  public export
-  (++.) : Tel f ps [<] -> Tel f qs ps -> Tel f (ps ++ qs) [<]
-  (++.) a b = a ++ (rewrite appendLinLeftNeutral ps in b)
-
-namespace Spine
-  data Spine where
-    Lin : Spine f [<] ns
-    (:<) : (c : Spine f ps ns) -> f ns -> Spine f (ps :< n) ns
-
-  public export
-  get : Spine f ps ns -> Idx ps -> f ns
-  get Lin p impossible
-  get (c :< t) IZ = t
-  get (c :< t) (IS n) = get c n
-
-  public export
-  (++) : Spine f' ps' ns' -> Spine f' qs' ns' -> Spine f' (ps' ++ qs') ns'
-  (++) te [<] = te
-  (++) te ((:<) {ps = ps} te' t) = (te ++ te') :< t
-
-  public export
-  lastN : Size qs -> Spine f (ps ++ qs) ns -> Spine f qs ns
-  lastN SZ p = [<]
-  lastN (SS n) (te :< t) = lastN n te :< t
-
-public export
-Con : (Named Type) -> Named Type
-Con f ps = Tel f ps [<]
-
 public export
 sPis : Tel (STy gs) ps ns -> STy gs (ns ++ ps) -> STy gs ns
 sPis [<] b = b
@@ -95,8 +51,3 @@ public export
 sLams : (ps : Names) -> STm gs (ns ++ ps) -> STm gs ns
 sLams [<] b = b
 sLams (as :< n) b = sLams as (SLam n b)
-
-public export
-(.size) : Tel f ps ns -> Size ps
-(.size) [<] = SZ
-(.size) (xs :< _) = SS (xs.size)
