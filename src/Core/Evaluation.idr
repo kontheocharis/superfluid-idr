@@ -30,6 +30,10 @@ apply : GlobEnv gs -> (s : Size ms) -> Closure gs ns ms -> VTm gs (ms ++ ns)
 apply sig s (Cl vs env t) = eval sig (weakenN vs env ++ vHeres s vs) t
 
 public export covering
+apply' : GlobEnv gs -> (s : Size ms) -> Closure gs (ns :< n) ms -> VTm gs ((ms ++ ns) :< n)
+apply' sig s (Cl vs env t) = eval sig (weakenN vs env ++ vHeres s vs) t
+
+public export covering
 applyRen : GlobEnv gs -> (s : Size ms) -> Closure gs [< n] ms -> VTm gs (ms :< n')
 applyRen sig s (Cl vs env t) = eval sig (weaken env :< VVar (lastLvl s)) t
 
