@@ -91,7 +91,7 @@ dispAlgebraForOp @{s} ctxSize (MkOp dom ret) (MkAlgebraAtOp ao) (MkMotive y) =
   vPis ctxSize dom -- domain of eliminator method
     (appClosure noReplace
       (res y (wkN @{s} ctxSize dom.size))  -- motive type
-      (ext @{s} ret algEl))  -- applied to indices and constructor -- TODO: WRONG!
+      (ext @{s} ret algEl))  -- applied to indices and constructor
 
 public export
 record DispAlgebraTel (sig : Signature gs ctx ps ops) (a : Algebra sig x) (y : Motive x) where
@@ -157,30 +157,35 @@ record CoherenceTel
     constructor MkCoherenceTel
     inner : VTel gs ops ctx
 
+record EqualityTy (0 gs : GlobNames) where
+  constructor MkEqualityTy
+  fam : forall ctx . VTy gs ctx -> VTm gs ctx -> VTm gs ctx -> VTy gs ctx
+
 public export covering
 coherenceForOp : Subst (Env gs) (VTm gs)
   => (forall us . Subst (Env gs) (Closure gs us))
   => Size ctx
-  -> (eq : forall ctx . VTy gs ctx -> VTm gs ctx -> VTm gs ctx -> VTy gs ctx)
+  -> (eq : EqualityTy gs)
   -> (op : Op gs ctx ps)
   -> (ao : AlgebraAtOp op x)
   -> (y : Motive x)
   -> (ao : DispAlgebraAtOp op ao y)
   -> (sec : VTm gs ctx)
   -> VTy gs ctx
-coherenceForOp @{s} ctxSize eq (MkOp dom ret) (MkAlgebraAtOp ao) (MkMotive y) (MkDispAlgebraAtOp dao) sec =
-  let algEl = appSpine noReplace ao (vHeres ctxSize dom.size) in
-  vPis ctxSize dom -- domain of eliminator method
-    (eq
-      (appClosure noReplace (res y (wkN @{s} ctxSize dom.size)) (ext @{s} ret algEl))
-      (appSpine noReplace dao (vHeres ctxSize dom.size))
-      (app noReplace (res sec (wkN @{s} ctxSize dom.size)) (MkName "subject") algEl))
+coherenceForOp @{s} ctxSize eq (MkOp dom ret) (MkAlgebraAtOp ao)
+  (MkMotive y) (MkDispAlgebraAtOp dao) sec
+    = let algEl = appSpine noReplace ao (vHeres ctxSize dom.size) in
+      vPis ctxSize dom -- domain of eliminator method
+        (eq.fam
+          (appClosure noReplace (res y (wkN @{s} ctxSize dom.size)) (ext @{s} ret algEl))
+          (appSpine noReplace dao (vHeres ctxSize dom.size))
+          (app noReplace (res sec (wkN @{s} ctxSize dom.size)) (MkName "subject") algEl))
 
 public export covering
 coherence : Subst (Env gs) (VTm gs)
   => (forall us . Subst (Env gs) (Closure gs us))
   => Size ctx
-  -> (eq : forall ctx . VTy gs ctx -> VTm gs ctx -> VTm gs ctx -> VTy gs ctx)
+  -> (eq : EqualityTy gs)
   -> (sig : Signature gs ctx ps ops)
   -> {x : Carrier gs ctx ps}
   -> (a : Algebra sig x)
@@ -192,7 +197,8 @@ coherence ctxSize eq (MkSignature _ [<]) a y d sec = MkCoherenceTel [<]
 coherence @{s} ctxSize eq (MkSignature ind (sig :< op)) {x = MkCarrier x}
   (MkAlgebra (a :< ao)) (MkMotive {n = n'} y) (MkDispAlgebra (da :< dao)) (MkSection sec)
     = MkCoherenceTel $
-      ((coherence ctxSize eq (MkSignature ind sig) (MkAlgebra a) {x = MkCarrier x} (MkMotive y) (MkDispAlgebra da) (MkSection sec)).inner
+      ((coherence ctxSize eq (MkSignature ind sig) (MkAlgebra a)
+          {x = MkCarrier x} (MkMotive y) (MkDispAlgebra da) (MkSection sec)).inner
         :< closeVal sig.size (id @{s} ctxSize)
             (coherenceForOp {x = MkCarrier (res x (wkN @{s} ctxSize sig.size))}
               (ctxSize + sig.size) eq op
