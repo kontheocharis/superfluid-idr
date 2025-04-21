@@ -2,7 +2,7 @@ module Core.Substitution
 
 import Common
 import Context
-
+import Core.Values
 
 public export
 interface Subst (0 sub : Named (Named Type)) (0 tm : Named Type) | tm where

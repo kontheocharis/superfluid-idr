@@ -21,8 +21,6 @@ noReplace = MkGlobEnv (\_ => Nothing)
 public export covering
 eval : GlobEnv gs -> Env gs ns ms -> STm gs ms -> VTm gs ns
 
-export infixr 1 $$
-
 public export covering
 appClosure : GlobEnv gs -> Closure gs ps ms -> Spine (VTm gs) ps ms -> VTm gs ms
 appClosure sig (Cl _ env t) x = eval sig (env ++ x) t
