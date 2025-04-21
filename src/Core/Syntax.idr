@@ -45,7 +45,7 @@ isPat (SLet n a b) = No (\case Refl impossible)
 public export
 sPis : Tel (STy gs) ps ns -> STy gs (ns ++ ps) -> STy gs ns
 sPis [<] b = b
-sPis (as :< (n, a)) b = sPis as (SPi n a b)
+sPis ((:<) as {p = n} a) b = sPis as (SPi n a b)
 
 public export
 sLams : (ps : Names) -> STm gs (ns ++ ps) -> STm gs ns

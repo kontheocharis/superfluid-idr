@@ -108,7 +108,7 @@ sHeres nss pss = quoteSpine noReplace (nss + pss) (vHeres nss pss)
 public export covering
 vPis : Size ns -> VTel gs ps ns -> VTm gs (ns ++ ps) -> VTm gs ns
 vPis nss [<] b = b
-vPis nss (as :< (n, a)) b = vPis nss as (VPi n (apply noReplace nss a) (closeVal (SS SZ) (growEnvN nss as.size idEnv) b))
+vPis nss (as :< a) b = vPis nss as (VPi _ (apply noReplace nss a) (closeVal (SS SZ) (growEnvN nss as.size idEnv) b))
 
 public export covering
 vPis' : VTel gs ps [<] -> VTm gs ps -> VTm gs [<]
@@ -117,7 +117,7 @@ vPis' as b = vPis SZ as (rewrite appendLinLeftNeutral ps in b)
 public export covering
 vTelToTelVTm : Size ns -> VTel gs ps ns -> Tel (VTm gs) ps ns
 vTelToTelVTm _ [<] = [<]
-vTelToTelVTm s ((:<) {ps = ps} te' (n, t)) = (vTelToTelVTm s te') :< (n, apply noReplace s t)
+vTelToTelVTm s ((:<) {ps = ps} te' t) = vTelToTelVTm s te' :< apply noReplace s t
 
 public export covering
 moveToBound : Size ns -> Size ps -> Size ls -> Closure gs ls (ns ++ ps) -> Closure gs (ps ++ ls) ns
@@ -126,7 +126,7 @@ moveToBound nss pss lss cl = closeVal (pss + lss) idEnv (rewrite appendAssociati
 public export covering
 (++) : {auto ss : Size ns} -> VTel gs ps ns -> VTel gs qs (ns ++ ps) -> VTel gs (ps ++ qs) ns
 (++) {ss} te [<] = te
-(++) {ss} te ((:<) {ps = ls} te' (n, t)) = (te ++ te') :< (n, moveToBound ss te.size te'.size t)
+(++) {ss} te ((:<) {ps = ls} te' t) = (te ++ te') :< moveToBound ss te.size te'.size t
 
 public export covering
 (++.) : VTel gs ps [<] -> VTel gs qs ps -> VTel gs (ps ++ qs) [<]
@@ -134,7 +134,7 @@ public export covering
 
 public export covering
 singleton : (n : Name) -> Size ns -> VTm gs ns -> VTel gs [< n] ns
-singleton n sz t = [< (n, closeVal SZ idEnv t)]
+singleton n sz t = [< closeVal SZ idEnv t]
 
 public export
 fill : VTm gs ns -> Size ns -> Env gs ns (ns :< n)

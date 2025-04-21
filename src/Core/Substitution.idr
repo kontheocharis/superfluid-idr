@@ -3,6 +3,7 @@ module Core.Substitution
 import Common
 import Context
 
+
 public export
 interface Subst (0 sub : Named (Named Type)) (0 tm : Named Type) | tm where
   -- Required
@@ -29,6 +30,9 @@ interface Subst (0 sub : Named (Named Type)) (0 tm : Named Type) | tm where
   wkN : Size hs -> Size by -> sub (hs ++ by) hs
   wkN sz SZ @{s} = id @{s} sz
   wkN sz (SS by) @{s} = compose @{s} (wkN sz by @{s}) (wk @{s} (sz + by))
+
+  wkN2 : Size hs -> Size by -> Size cy -> sub ((hs ++ by) ++ cy) hs
+  wkN2 sz by cy @{s} = compose @{s} (wkN sz by @{s}) (wkN (sz + by) cy @{s})
 
   join : Size is -> sub gs hs -> sub gs is -> sub gs (hs ++ is)
   join @{s} SZ s1 s2 = s1

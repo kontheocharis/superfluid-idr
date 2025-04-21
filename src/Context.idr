@@ -316,12 +316,12 @@ namespace Tel
   public export
   data Tel : (Named Type) -> Named (Named Type) where
     Lin : Tel f [<] ns
-    (:<) : (c : Tel f ps ns) -> (p : (Name, f (ns ++ ps))) -> Tel f (ps :< fst p) ns
+    (:<) : (c : Tel f ps ns) -> {p : Name} -> f (ns ++ ps) -> Tel f (ps :< p) ns
 
   public export
   (++) : Tel f' ps' ns' -> Tel f' qs' (ns' ++ ps') -> Tel f' (ps' ++ qs') ns'
   (++) te [<] = te
-  (++) te ((:<) {ps = ps} te' (n, t)) = (te ++ te') :< (n, rewrite appendAssociative ns' ps' ps in t)
+  (++) te ((:<) {ps = ps} te' {p = p} t) = (te ++ te') :< rewrite appendAssociative ns' ps' ps in t
 
   export infixr 5 ++.
 

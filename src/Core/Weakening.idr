@@ -33,17 +33,17 @@ mutual
   public export
   weakenVTel : VTel gs ps ns -> VTel gs ps (ns :< n)
   weakenVTel [<] = [<]
-  weakenVTel (xs :< (m, cl)) = weakenVTel xs :< (m, weakenClosure cl)
+  weakenVTel (xs :< cl) = weakenVTel xs :< weakenClosure cl
 
   public export
   globWeakenVTel : VTel gs ps ns -> VTel (gs :< g) ps ns
   globWeakenVTel [<] = [<]
-  globWeakenVTel (xs :< (m, cl)) = globWeakenVTel xs :< (m, globWeakenClosure cl)
+  globWeakenVTel (xs :< cl) = globWeakenVTel xs :< globWeakenClosure cl
 
   public export
   globReorderVTel : VTel (gs :< g :< g') ps ns -> VTel (gs :< g' :< g) ps ns
   globReorderVTel [<] = [<]
-  globReorderVTel (xs :< (m, cl)) = globReorderVTel xs :< (m, globReorderClosure cl)
+  globReorderVTel (xs :< cl) = globReorderVTel xs :< globReorderClosure cl
 
   public export
   globWeakenSTm : STm gs ns -> STm (gs :< g) ns
@@ -98,12 +98,12 @@ mutual
   public export
   globWeakenTel : (GlobWeaken f) => Tel (f gs) ps ns -> Tel (f (gs :< g)) ps ns
   globWeakenTel [<] = [<]
-  globWeakenTel (sp :< (n, t)) = globWeakenTel sp :< (n, globWeaken t)
+  globWeakenTel (sp :< t) = globWeakenTel sp :< globWeaken t
 
   public export
   globReorderTel : (GlobWeaken f) => Tel (f (gs :< g :< g')) ps ns -> Tel (f (gs :< g' :< g)) ps ns
   globReorderTel [<] = [<]
-  globReorderTel (sp :< (n, t)) = globReorderTel sp :< (n, globReorder t)
+  globReorderTel (sp :< t) = globReorderTel sp :< globReorder t
 
   public export
   globWeakenEnv : Env gs ns ms -> Env (gs :< g) ns ms

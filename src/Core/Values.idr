@@ -60,7 +60,7 @@ namespace VTel
   public export
   data VTel : GlobNamed (Named (Named Type)) where
     Lin : VTel gs [<] ns
-    (:<) : VTel gs ps ns -> (p : (Name, Closure gs ps ns)) -> VTel gs (ps :< fst p) ns
+    (:<) : VTel gs ps ns -> {p : Name} -> Closure gs ps ns -> VTel gs (ps :< p) ns
 
   public export
   (.size) : VTel gs ps ns -> Size ps
@@ -70,4 +70,4 @@ namespace VTel
   public export
   (.names) : VTel gs ps ns -> Singleton ps
   (.names) Lin = Val [<]
-  (.names) (te :< t) = let Val ns = te.names in Val (ns :< fst t)
+  (.names) ((:<) te {p = p} t) = let Val ns = te.names in Val (ns :< p)
